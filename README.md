@@ -10,7 +10,7 @@
 
 ---
 
-一个基于 Java Spring Boot 开发的豆瓣小组数据采集和智能回复系统，由 🦕🥚 **恐龙蛋** 精心制作，支持自动采集小组帖子、评论，并集成大模型智能回复功能。
+一个基于 Java Spring Boot 开发的豆瓣小组数据采集和智能回复系统，由 🦕🥚 **恐龙蛋** 制作，支持自动采集小组帖子、评论，并集成大模型智能回复功能。
 
 ## 🥚 项目简介
 
@@ -22,6 +22,10 @@
 - **风格学习**：分析小组历史帖子和评论，学习回复风格
 - **智能回复**：基于大模型 API，生成符合小组风格的自动回复
 - **Web 管理界面**：现代化的 Web 界面，实时查看采集的数据
+<img width="2404" height="1194" alt="4c8b1f31-1da7-48dd-a08d-950a1a96b56d" src="https://github.com/user-attachments/assets/a377d16e-e519-4b70-80b1-ae42d639ec3d" />
+<img width="2310" height="1324" alt="fc08fdee-31ba-4959-9b1e-7fe0941a61e8" src="https://github.com/user-attachments/assets/6cb7d958-d6fe-433a-b24c-3594811542ae" />
+<img width="2354" height="1422" alt="image" src="https://github.com/user-attachments/assets/8829fbc1-c746-43c9-80b8-f7272773a3e9" />
+<img width="1832" height="1246" alt="image" src="https://github.com/user-attachments/assets/3f9d0efe-123c-4dea-a32d-7c4c3f9843c9" />
 
 ## ✨ 功能特性
 
