@@ -18,8 +18,10 @@ public class RepositoryService {
     private final PostDao postDao;
     private final CommentDao commentDao;
     private final CrawlerConfigDao crawlerConfigDao;
+    private final Jdbi jdbi;
 
     public RepositoryService(Jdbi jdbi) {
+        this.jdbi = jdbi;
         this.groupDao = jdbi.onDemand(GroupDao.class);
         this.postDao = jdbi.onDemand(PostDao.class);
         this.commentDao = jdbi.onDemand(CommentDao.class);

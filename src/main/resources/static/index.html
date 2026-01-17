@@ -86,6 +86,19 @@
             </div>
         </div>
 
+        <!-- 错误日志显示区域 -->
+        <div id="error-log-container" class="error-log-container">
+            <div class="error-log-header">
+                <h3>🐛 错误日志</h3>
+                <div class="error-log-actions">
+                    <button class="btn btn-secondary btn-sm" id="clear-error-log">清空日志</button>
+                    <button class="btn btn-secondary btn-sm" id="copy-error-log">复制日志</button>
+                    <button class="btn btn-secondary btn-sm" id="toggle-error-log">收起</button>
+                </div>
+            </div>
+            <div id="error-log-content" class="error-log-content"></div>
+        </div>
+
         <!-- 配置编辑模态框 -->
         <div class="modal" id="config-modal">
             <div class="modal-content large">

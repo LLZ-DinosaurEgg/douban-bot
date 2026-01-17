@@ -820,3 +820,115 @@ main {
 .modal-content.large {
     max-width: 600px;
 }
+
+/* 错误日志样式 */
+.error-log-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 3px solid #dc3545;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+    z-index: 999;
+    max-height: 400px;
+    transition: max-height 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.error-log-container.collapsed {
+    max-height: 50px;
+    overflow: hidden;
+}
+
+.error-log-container.expanded {
+    max-height: 400px;
+}
+
+.error-log-header {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.error-log-header h3 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+}
+
+.error-log-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.error-log-content {
+    padding: 15px 20px;
+    overflow-y: auto;
+    max-height: 350px;
+    background: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+}
+
+.error-log-empty {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-style: italic;
+}
+
+.error-log-entry {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #fff5f5;
+    border-left: 4px solid #dc3545;
+    border-radius: 4px;
+}
+
+.error-log-time {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.error-log-message {
+    color: #dc3545;
+    font-weight: 600;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.error-log-details {
+    margin-top: 8px;
+}
+
+.error-log-details summary {
+    cursor: pointer;
+    color: #666;
+    font-size: 0.9em;
+    user-select: none;
+}
+
+.error-log-details summary:hover {
+    color: #dc3545;
+}
+
+.error-log-details-content {
+    margin-top: 8px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 0.85em;
+    color: #333;
+    max-height: 200px;
+    overflow-y: auto;
+}

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -17,7 +18,7 @@ public class Group {
     private String name;
     private String alt;
     private Integer memberCount;
-    private LocalDateTime created;
+    private LocalDate created;  // 日期格式，不是日期时间
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

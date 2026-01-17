@@ -3,9 +3,8 @@ package com.douban.bot.db;
 import com.douban.bot.model.Post;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.customizer.BindBean;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -25,11 +24,13 @@ public interface PostDao {
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
             "created, updated, created_at as createdAt FROM \"Post\" WHERE post_id = :postId")
+    @RegisterConstructorMapper(PostRow.class)
     Optional<PostRow> findByPostId(@Bind("postId") String postId);
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
             "created, updated, created_at as createdAt FROM \"Post\" WHERE title = :title LIMIT 1")
+    @RegisterConstructorMapper(PostRow.class)
     Optional<PostRow> findByTitle(@Bind("title") String title);
 
     @SqlQuery("SELECT COUNT(*) FROM \"Post\" WHERE (:groupId IS NULL OR group_id = :groupId)")
@@ -40,14 +41,14 @@ public interface PostDao {
             "created, updated, created_at as createdAt FROM \"Post\" " +
             "WHERE (:groupId IS NULL OR group_id = :groupId) " +
             "ORDER BY created DESC LIMIT :limit OFFSET :offset")
-    @RegisterBeanMapper(PostRow.class)
+    @RegisterConstructorMapper(PostRow.class)
     List<PostRow> findWithPagination(@Bind("groupId") String groupId, @Bind("limit") int limit, @Bind("offset") int offset);
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
             "created, updated, created_at as createdAt FROM \"Post\" " +
             "WHERE group_id = :groupId ORDER BY created DESC LIMIT :limit")
-    @RegisterBeanMapper(PostRow.class)
+    @RegisterConstructorMapper(PostRow.class)
     List<PostRow> findByGroupId(@Bind("groupId") String groupId, @Bind("limit") int limit);
 
     @SqlUpdate("INSERT INTO \"Post\" (post_id, group_id, author_info, alt, title, content, photo_list, " +

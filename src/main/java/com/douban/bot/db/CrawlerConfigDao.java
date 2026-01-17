@@ -3,10 +3,8 @@ package com.douban.bot.db;
 import com.douban.bot.model.CrawlerConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.customizer.BindBean;
-import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
@@ -25,25 +23,43 @@ public interface CrawlerConfigDao {
     @SqlQuery("SELECT id, name, group_url as groupUrl, group_id as groupId, keywords, exclude_keywords as excludeKeywords, " +
             "pages, sleep_seconds as sleepSeconds, enabled, created_at as createdAt, updated_at as updatedAt " +
             "FROM CrawlerConfig WHERE id = :id")
+    @RegisterConstructorMapper(CrawlerConfigRow.class)
     Optional<CrawlerConfigRow> findById(@Bind("id") Long id);
 
     @SqlQuery("SELECT id, name, group_url as groupUrl, group_id as groupId, keywords, exclude_keywords as excludeKeywords, " +
             "pages, sleep_seconds as sleepSeconds, enabled, created_at as createdAt, updated_at as updatedAt " +
             "FROM CrawlerConfig ORDER BY created_at DESC")
-    @RegisterBeanMapper(CrawlerConfigRow.class)
+    @RegisterConstructorMapper(CrawlerConfigRow.class)
     List<CrawlerConfigRow> findAll();
 
     @SqlUpdate("INSERT INTO CrawlerConfig (name, group_url, group_id, keywords, exclude_keywords, pages, sleep_seconds, enabled, created_at, updated_at) " +
             "VALUES (:name, :groupUrl, :groupId, :keywords, :excludeKeywords, :pages, :sleepSeconds, :enabled, :createdAt, :updatedAt)")
-    @GetGeneratedKeys("id")
     @Transaction
-    long insert(CrawlerConfigRow row);
+    void insert(@Bind("name") String name,
+                @Bind("groupUrl") String groupUrl,
+                @Bind("groupId") String groupId,
+                @Bind("keywords") String keywords,
+                @Bind("excludeKeywords") String excludeKeywords,
+                @Bind("pages") Integer pages,
+                @Bind("sleepSeconds") Integer sleepSeconds,
+                @Bind("enabled") boolean enabled,
+                @Bind("createdAt") String createdAt,
+                @Bind("updatedAt") String updatedAt);
 
     @SqlUpdate("UPDATE CrawlerConfig SET name = :name, group_url = :groupUrl, group_id = :groupId, keywords = :keywords, " +
             "exclude_keywords = :excludeKeywords, pages = :pages, sleep_seconds = :sleepSeconds, enabled = :enabled, " +
             "updated_at = :updatedAt WHERE id = :id")
     @Transaction
-    void update(CrawlerConfigRow row);
+    void update(@Bind("id") Long id,
+                @Bind("name") String name,
+                @Bind("groupUrl") String groupUrl,
+                @Bind("groupId") String groupId,
+                @Bind("keywords") String keywords,
+                @Bind("excludeKeywords") String excludeKeywords,
+                @Bind("pages") Integer pages,
+                @Bind("sleepSeconds") Integer sleepSeconds,
+                @Bind("enabled") boolean enabled,
+                @Bind("updatedAt") String updatedAt);
 
     @SqlUpdate("DELETE FROM CrawlerConfig WHERE id = :id")
     @Transaction
@@ -60,14 +76,20 @@ public interface CrawlerConfigDao {
 
     default CrawlerConfig createConfig(CrawlerConfig config) {
         CrawlerConfigRow row = toCrawlerConfigRow(config);
-        long id = insert(row);
-        config.setId(id);
+        insert(row.name(), row.groupUrl(), row.groupId(), row.keywords(), 
+               row.excludeKeywords(), row.pages(), row.sleepSeconds(), 
+               row.enabled(), row.createdAt(), row.updatedAt());
+        // 注意：由于 SQLite 的限制，我们需要在同一个连接中获取 ID
+        // 这需要在调用方使用 handle 来处理
+        // 暂时返回 config，ID 将在 RepositoryService 中设置
         return config;
     }
 
     default void updateConfig(CrawlerConfig config) {
         CrawlerConfigRow row = toCrawlerConfigRow(config);
-        update(row);
+        update(row.id(), row.name(), row.groupUrl(), row.groupId(), row.keywords(),
+               row.excludeKeywords(), row.pages(), row.sleepSeconds(), 
+               row.enabled(), row.updatedAt());
     }
 
     default void deleteConfig(Long id) {

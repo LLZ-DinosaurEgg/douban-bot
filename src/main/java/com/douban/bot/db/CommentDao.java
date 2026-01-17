@@ -3,9 +3,8 @@ package com.douban.bot.db;
 import com.douban.bot.model.Comment;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.customizer.BindBean;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -25,19 +24,20 @@ public interface CommentDao {
     @SqlQuery("SELECT id, comment_id as commentId, post_id as postId, group_id as groupId, " +
             "author_info as authorInfo, content, reply_to_id as replyToId, like_count as likeCount, " +
             "created, created_at as createdAt FROM \"Comment\" WHERE comment_id = :commentId")
+    @RegisterConstructorMapper(CommentRow.class)
     Optional<CommentRow> findByCommentId(@Bind("commentId") String commentId);
 
     @SqlQuery("SELECT id, comment_id as commentId, post_id as postId, group_id as groupId, " +
             "author_info as authorInfo, content, reply_to_id as replyToId, like_count as likeCount, " +
             "created, created_at as createdAt FROM \"Comment\" WHERE post_id = :postId ORDER BY created ASC")
-    @RegisterBeanMapper(CommentRow.class)
+    @RegisterConstructorMapper(CommentRow.class)
     List<CommentRow> findByPostId(@Bind("postId") String postId);
 
     @SqlQuery("SELECT id, comment_id as commentId, post_id as postId, group_id as groupId, " +
             "author_info as authorInfo, content, reply_to_id as replyToId, like_count as likeCount, " +
             "created, created_at as createdAt FROM \"Comment\" " +
             "WHERE group_id = :groupId ORDER BY created DESC LIMIT :limit")
-    @RegisterBeanMapper(CommentRow.class)
+    @RegisterConstructorMapper(CommentRow.class)
     List<CommentRow> findByGroupId(@Bind("groupId") String groupId, @Bind("limit") int limit);
 
     @SqlUpdate("INSERT INTO \"Comment\" (comment_id, post_id, group_id, author_info, content, reply_to_id, like_count, created) " +

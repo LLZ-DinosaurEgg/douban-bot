@@ -4,6 +4,7 @@ import com.douban.bot.db.CrawlerConfigDao;
 import com.douban.bot.model.CrawlerConfig;
 import com.douban.bot.service.CrawlerService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.Jdbi;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/config")
 @RequiredArgsConstructor
@@ -65,28 +67,66 @@ public class ConfigController {
 
     @PostMapping("/crawler")
     public ResponseEntity<Map<String, Object>> createConfig(@RequestBody Map<String, Object> request) {
+        log.info("收到创建配置请求: {}", request);
         try {
             CrawlerConfig config = parseConfigFromRequest(request);
+            log.debug("解析后的配置: name={}, groupUrl={}, pages={}", 
+                config.getName(), config.getGroupUrl(), config.getPages());
+            
             String groupId = extractGroupId(config.getGroupUrl());
             if (groupId == null) {
+                log.warn("无法从小组链接中提取小组ID: {}", config.getGroupUrl());
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("error", "无法从小组链接中提取小组ID，请确保链接格式正确");
                 return ResponseEntity.status(400).body(response);
             }
             config.setGroupId(groupId);
+            log.debug("提取的小组ID: {}", groupId);
 
-            CrawlerConfigDao dao = jdbi.onDemand(CrawlerConfigDao.class);
-            CrawlerConfig created = dao.createConfig(config);
+            // 使用 handle 在同一连接中执行插入和获取 ID
+            CrawlerConfig created = jdbi.inTransaction(handle -> {
+                CrawlerConfigDao dao = handle.attach(CrawlerConfigDao.class);
+                
+                // 准备数据
+                com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                String keywordsJson = config.getKeywords() != null && !config.getKeywords().isEmpty()
+                        ? objectMapper.writeValueAsString(config.getKeywords()) : "[]";
+                String excludeKeywordsJson = config.getExcludeKeywords() != null && !config.getExcludeKeywords().isEmpty()
+                        ? objectMapper.writeValueAsString(config.getExcludeKeywords()) : "[]";
+                String createdAt = config.getCreatedAt() != null 
+                        ? config.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        : java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                String updatedAt = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                
+                // 执行插入
+                dao.insert(config.getName(), config.getGroupUrl(), config.getGroupId(), keywordsJson, 
+                          excludeKeywordsJson, config.getPages() != null ? config.getPages() : 10, 
+                          config.getSleepSeconds() != null ? config.getSleepSeconds() : 900, 
+                          config.getEnabled() != null && config.getEnabled(), createdAt, updatedAt);
+                
+                // 在同一连接中获取生成的 ID
+                long id = handle.createQuery("SELECT last_insert_rowid()")
+                        .mapTo(long.class)
+                        .one();
+                
+                config.setId(id);
+                return config;
+            });
+            
+            log.info("配置创建成功: id={}, name={}", created.getId(), created.getName());
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("data", created);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            log.error("创建配置失败", e);
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("error", "创建配置失败: " + e.getMessage());
+            log.error("错误详情: 请求数据={}, 异常类型={}, 异常消息={}", 
+                request, e.getClass().getName(), e.getMessage(), e);
             return ResponseEntity.status(500).body(response);
         }
     }
@@ -194,19 +234,40 @@ public class ConfigController {
     }
 
     private CrawlerConfig parseConfigFromRequest(Map<String, Object> request) {
-        List<String> keywords = parseStringList(request.get("keywords"));
-        List<String> excludeKeywords = parseStringList(request.get("excludeKeywords"));
+        try {
+            String name = (String) request.get("name");
+            String groupUrl = (String) request.get("groupUrl");
+            
+            if (name == null || name.trim().isEmpty()) {
+                throw new IllegalArgumentException("配置名称不能为空");
+            }
+            if (groupUrl == null || groupUrl.trim().isEmpty()) {
+                throw new IllegalArgumentException("小组链接不能为空");
+            }
+            
+            List<String> keywords = parseStringList(request.get("keywords"));
+            List<String> excludeKeywords = parseStringList(request.get("excludeKeywords"));
+            Integer pages = parseInteger(request.get("pages"), 10);
+            Integer sleepSeconds = parseInteger(request.get("sleepSeconds"), 900);
+            Boolean enabled = parseBoolean(request.get("enabled"), true);
 
-        return CrawlerConfig.builder()
-                .name((String) request.get("name"))
-                .groupUrl((String) request.get("groupUrl"))
-                .keywords(keywords)
-                .excludeKeywords(excludeKeywords)
-                .pages(parseInteger(request.get("pages"), 10))
-                .sleepSeconds(parseInteger(request.get("sleepSeconds"), 900))
-                .enabled(parseBoolean(request.get("enabled"), true))
-                .createdAt(java.time.LocalDateTime.now())
-                .build();
+            log.debug("解析配置参数: name={}, groupUrl={}, keywords={}, excludeKeywords={}, pages={}, sleepSeconds={}, enabled={}",
+                name, groupUrl, keywords, excludeKeywords, pages, sleepSeconds, enabled);
+
+            return CrawlerConfig.builder()
+                    .name(name.trim())
+                    .groupUrl(groupUrl.trim())
+                    .keywords(keywords)
+                    .excludeKeywords(excludeKeywords)
+                    .pages(pages)
+                    .sleepSeconds(sleepSeconds)
+                    .enabled(enabled)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build();
+        } catch (Exception e) {
+            log.error("解析配置请求失败", e);
+            throw new IllegalArgumentException("解析配置参数失败: " + e.getMessage(), e);
+        }
     }
 
     private List<String> parseStringList(Object value) {

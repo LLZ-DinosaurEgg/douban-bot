@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadGroups();
     setupEventListeners();
     setupConfigTabListeners();
+    // 初始化错误日志显示
+    updateErrorLogDisplay();
 });
 
 // 设置事件监听
@@ -359,6 +361,16 @@ function setupConfigTabListeners() {
         closeConfigModal();
     });
 
+    // 错误日志按钮事件
+    document.getElementById('clear-error-log')?.addEventListener('click', clearErrorLog);
+    document.getElementById('copy-error-log')?.addEventListener('click', copyErrorLog);
+    document.getElementById('toggle-error-log')?.addEventListener('click', () => {
+        const container = document.getElementById('error-log-container');
+        container.classList.toggle('collapsed');
+        const btn = document.getElementById('toggle-error-log');
+        btn.textContent = container.classList.contains('collapsed') ? '展开' : '收起';
+    });
+
     document.getElementById('cancel-config-btn').addEventListener('click', () => {
         closeConfigModal();
     });
@@ -391,11 +403,14 @@ async function loadConfigs() {
                 container.appendChild(card);
             });
         } else {
-            container.innerHTML = '<div class="error">加载配置失败</div>';
+            const errorMsg = result.error || '未知错误';
+            addErrorLog(`加载配置列表失败: ${errorMsg}`, { response: result });
+            container.innerHTML = '<div class="error">加载配置失败: ' + errorMsg + '</div>';
         }
     } catch (error) {
         console.error('加载配置失败:', error);
-        container.innerHTML = '<div class="error">加载失败</div>';
+        addErrorLog(`加载配置列表异常: ${error.message}`, { error: error.message, stack: error.stack });
+        container.innerHTML = '<div class="error">加载失败: ' + error.message + '</div>';
     }
 }
 
@@ -491,6 +506,76 @@ function closeConfigModal() {
     document.getElementById('config-modal').classList.remove('show');
 }
 
+// 错误日志管理
+let errorLogs = [];
+
+function addErrorLog(message, details = null) {
+    const timestamp = new Date().toLocaleString('zh-CN');
+    const errorEntry = {
+        timestamp,
+        message,
+        details: details ? JSON.stringify(details, null, 2) : null,
+        fullError: details
+    };
+    errorLogs.push(errorEntry);
+    updateErrorLogDisplay();
+    
+    // 自动展开错误日志区域
+    const container = document.getElementById('error-log-container');
+    container.classList.add('expanded');
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateErrorLogDisplay() {
+    const content = document.getElementById('error-log-content');
+    if (errorLogs.length === 0) {
+        content.innerHTML = '<div class="error-log-empty">暂无错误日志</div>';
+        return;
+    }
+    
+    content.innerHTML = errorLogs.slice().reverse().map((log, index) => {
+        return `
+            <div class="error-log-entry">
+                <div class="error-log-time">[${log.timestamp}]</div>
+                <div class="error-log-message">${escapeHtml(log.message)}</div>
+                ${log.details ? `
+                    <details class="error-log-details">
+                        <summary>查看详细信息</summary>
+                        <pre class="error-log-details-content">${escapeHtml(log.details)}</pre>
+                    </details>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function clearErrorLog() {
+    errorLogs = [];
+    updateErrorLogDisplay();
+}
+
+function copyErrorLog() {
+    if (errorLogs.length === 0) {
+        alert('没有错误日志可复制');
+        return;
+    }
+    
+    const logText = errorLogs.map(log => {
+        let text = `[${log.timestamp}] ${log.message}`;
+        if (log.details) {
+            text += `\n详细信息:\n${log.details}`;
+        }
+        return text;
+    }).join('\n\n');
+    
+    navigator.clipboard.writeText(logText).then(() => {
+        alert('错误日志已复制到剪贴板');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制');
+    });
+}
+
 // 保存配置
 async function saveConfig() {
     const form = document.getElementById('config-form');
@@ -510,6 +595,8 @@ async function saveConfig() {
         const url = configId ? `/api/config/crawler/${configId}` : '/api/config/crawler';
         const method = configId ? 'PUT' : 'POST';
         
+        console.log('发送配置请求:', { url, method, config });
+        
         const response = await fetch(url, {
             method: method,
             headers: {
@@ -519,16 +606,30 @@ async function saveConfig() {
         });
 
         const result = await response.json();
+        console.log('服务器响应:', result);
 
         if (result.success) {
             closeConfigModal();
             loadConfigs();
             alert('配置保存成功！');
         } else {
-            alert('保存失败: ' + (result.error || '未知错误'));
+            const errorMsg = result.error || '未知错误';
+            addErrorLog(`保存配置失败: ${errorMsg}`, {
+                request: config,
+                response: result,
+                status: response.status
+            });
+            alert('保存失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('保存配置失败:', error);
+        const errorDetails = {
+            message: error.message,
+            stack: error.stack,
+            config: config,
+            url: configId ? `/api/config/crawler/${configId}` : '/api/config/crawler'
+        };
+        addErrorLog(`保存配置异常: ${error.message}`, errorDetails);
         alert('保存失败: ' + error.message);
     }
 }
@@ -542,10 +643,13 @@ async function editConfig(id) {
         if (result.success) {
             openConfigModal(result.data);
         } else {
-            alert('加载配置失败: ' + (result.error || '未知错误'));
+            const errorMsg = result.error || '未知错误';
+            addErrorLog(`加载配置失败: ${errorMsg}`, { id, response: result });
+            alert('加载配置失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('加载配置失败:', error);
+        addErrorLog(`加载配置异常: ${error.message}`, { id, error: error.message, stack: error.stack });
         alert('加载失败: ' + error.message);
     }
 }
@@ -567,10 +671,13 @@ async function deleteConfig(id) {
             loadConfigs();
             alert('配置已删除');
         } else {
-            alert('删除失败: ' + (result.error || '未知错误'));
+            const errorMsg = result.error || '未知错误';
+            addErrorLog(`删除配置失败: ${errorMsg}`, { id, response: result });
+            alert('删除失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('删除配置失败:', error);
+        addErrorLog(`删除配置异常: ${error.message}`, { id, error: error.message, stack: error.stack });
         alert('删除失败: ' + error.message);
     }
 }
@@ -595,10 +702,13 @@ async function runCrawler(id) {
                 loadStats();
             }, 3000);
         } else {
-            alert('启动失败: ' + (result.error || '未知错误'));
+            const errorMsg = result.error || '未知错误';
+            addErrorLog(`启动爬虫失败: ${errorMsg}`, { id, response: result });
+            alert('启动失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('启动爬虫失败:', error);
+        addErrorLog(`启动爬虫异常: ${error.message}`, { id, error: error.message, stack: error.stack });
         alert('启动失败: ' + error.message);
     }
 }

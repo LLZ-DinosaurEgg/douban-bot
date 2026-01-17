@@ -1,11 +1,11 @@
 package com.douban.bot.service;
 
 import com.douban.bot.model.Group;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -49,7 +49,7 @@ public class HtmlParser {
         }
 
         // 获取创建时间
-        LocalDateTime created = LocalDateTime.now();
+        LocalDate created = LocalDate.now();
         Elements groupLoc = doc.select(".group-loc");
         for (Element loc : groupLoc) {
             String text = loc.text();
@@ -58,7 +58,7 @@ public class HtmlParser {
                 String dateStr = matcher.group(1).trim();
                 try {
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                    created = LocalDateTime.parse(dateStr, formatter);
+                    created = LocalDate.parse(dateStr, formatter);
                 } catch (Exception ignored) {
                 }
             }
