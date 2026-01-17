@@ -103,7 +103,10 @@ public class ConfigController {
                 dao.insert(config.getName(), config.getGroupUrl(), config.getGroupId(), keywordsJson, 
                           excludeKeywordsJson, config.getPages() != null ? config.getPages() : 10, 
                           config.getSleepSeconds() != null ? config.getSleepSeconds() : 900, 
-                          config.getEnabled() != null && config.getEnabled(), createdAt, updatedAt);
+                          config.getEnabled() != null && config.getEnabled(), 
+                          config.getCookie() != null ? config.getCookie() : "",
+                          config.getCrawlComments() != null ? config.getCrawlComments() : true,
+                          createdAt, updatedAt);
                 
                 // 在同一连接中获取生成的 ID
                 long id = handle.createQuery("SELECT last_insert_rowid()")
@@ -213,7 +216,9 @@ public class ConfigController {
                             config.getGroupId(),
                             config.getPages(),
                             config.getKeywords() != null ? config.getKeywords() : List.of(),
-                            config.getExcludeKeywords() != null ? config.getExcludeKeywords() : List.of()
+                            config.getExcludeKeywords() != null ? config.getExcludeKeywords() : List.of(),
+                            config.getCookie() != null ? config.getCookie() : "",
+                            config.getCrawlComments() != null ? config.getCrawlComments() : true
                     );
                 } catch (Exception e) {
                     System.err.println("爬虫执行失败: " + e.getMessage());
@@ -250,9 +255,11 @@ public class ConfigController {
             Integer pages = parseInteger(request.get("pages"), 10);
             Integer sleepSeconds = parseInteger(request.get("sleepSeconds"), 900);
             Boolean enabled = parseBoolean(request.get("enabled"), true);
+            String cookie = request.get("cookie") != null ? request.get("cookie").toString().trim() : "";
+            Boolean crawlComments = parseBoolean(request.get("crawlComments"), true);
 
-            log.debug("解析配置参数: name={}, groupUrl={}, keywords={}, excludeKeywords={}, pages={}, sleepSeconds={}, enabled={}",
-                name, groupUrl, keywords, excludeKeywords, pages, sleepSeconds, enabled);
+            log.debug("解析配置参数: name={}, groupUrl={}, keywords={}, excludeKeywords={}, pages={}, sleepSeconds={}, enabled={}, hasCookie={}, crawlComments={}",
+                name, groupUrl, keywords, excludeKeywords, pages, sleepSeconds, enabled, !cookie.isEmpty(), crawlComments);
 
             return CrawlerConfig.builder()
                     .name(name.trim())
@@ -262,6 +269,8 @@ public class ConfigController {
                     .pages(pages)
                     .sleepSeconds(sleepSeconds)
                     .enabled(enabled)
+                    .cookie(cookie)
+                    .crawlComments(crawlComments)
                     .createdAt(java.time.LocalDateTime.now())
                     .build();
         } catch (Exception e) {

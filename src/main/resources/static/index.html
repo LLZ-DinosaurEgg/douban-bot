@@ -91,9 +91,14 @@
                             <button class="btn btn-primary" id="edit-llm-config-btn">✏️ 编辑大模型配置</button>
                         </div>
                         <div class="bot-status-grid">
-                            <div class="bot-status-item">
-                                <span class="bot-status-label">机器人状态:</span>
-                                <span class="bot-status-value" id="bot-enabled-status">-</span>
+                            <div class="bot-status-item" style="display: flex; justify-content: space-between; align-items: center; grid-column: 1 / -1;">
+                                <div>
+                                    <span class="bot-status-label">机器人状态:</span>
+                                    <span class="bot-status-value" id="bot-enabled-status">-</span>
+                                </div>
+                                <button class="btn" id="toggle-bot-btn" style="min-width: 100px;">
+                                    <span id="toggle-bot-btn-text">启动</span>
+                                </button>
                             </div>
                             <div class="bot-status-item">
                                 <span class="bot-status-label">LLM API:</span>
@@ -169,6 +174,14 @@
                                     <div id="bot-reply-delay" class="bot-config-value">-</div>
                                 </div>
                                 <div class="bot-config-row">
+                                    <label>回复速度倍数:</label>
+                                    <div id="bot-reply-speed-multiplier-display" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
+                                    <label>定时任务间隔:</label>
+                                    <div id="bot-reply-check-interval-display" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
                                     <label>历史帖子数:</label>
                                     <div id="bot-history-posts" class="bot-config-value">-</div>
                                 </div>
@@ -183,6 +196,10 @@
                                 <div class="bot-config-row">
                                     <label>自定义 Prompt:</label>
                                     <div id="bot-custom-prompt-display" class="bot-config-value" style="max-height: 100px; overflow-y: auto; white-space: pre-wrap;">-</div>
+                                </div>
+                                <div class="bot-config-row" id="bot-cookie-status-row">
+                                    <label>Cookie 配置:</label>
+                                    <div id="bot-cookie-status" class="bot-config-value">-</div>
                                 </div>
                             </div>
                             <!-- 机器人配置表单 -->
@@ -210,6 +227,21 @@
                                                 <input type="number" id="bot-max-reply-delay" min="1" value="300">
                                             </div>
                                         </div>
+                                        <div class="form-group">
+                                            <label for="bot-reply-speed-multiplier">回复速度倍数</label>
+                                            <input type="number" id="bot-reply-speed-multiplier" min="0.1" max="10" step="0.1" value="1.0">
+                                            <small>控制回复速度：1.0 = 正常速度，0.5 = 快速（延迟减半），2.0 = 慢速（延迟翻倍）。实际延迟 = 配置延迟 × 速度倍数</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bot-reply-check-interval">回复检查间隔（秒）</label>
+                                            <input type="number" id="bot-reply-check-interval" min="60" step="60" value="300">
+                                            <small>定时任务检查未回复帖子的间隔时间，建议设置为60秒以上。每次只回复一个帖子。</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bot-reply-task-interval">定时任务间隔（秒）</label>
+                                            <input type="number" id="bot-reply-task-interval" min="60" value="300">
+                                            <small>定时任务检查未回复帖子的间隔时间，建议设置为60秒以上。每次只回复一个帖子。</small>
+                                        </div>
                                         <div class="form-row">
                                             <div class="form-group">
                                                 <label for="bot-history-posts-input">历史帖子数</label>
@@ -230,6 +262,11 @@
                                             <label for="bot-custom-prompt-input">自定义 Prompt</label>
                                             <textarea id="bot-custom-prompt-input" rows="6" placeholder="例如：你是一个幽默风趣的豆瓣小组成员，喜欢用表情符号和网络流行语..."></textarea>
                                             <small>如果填写了自定义 prompt，将优先使用自定义 prompt，而不是学习风格。留空则使用默认 prompt 或学习风格。</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bot-cookie-input">豆瓣 Cookie（用于发送评论）</label>
+                                            <input type="password" id="bot-cookie-input" placeholder="留空则使用默认 Cookie">
+                                            <small>用于机器人发送评论的 Cookie，留空则使用系统默认配置</small>
                                         </div>
                                     </div>
                                     <div class="form-actions">
@@ -297,6 +334,11 @@
                         <small>输入完整的小组链接，例如：https://www.douban.com/group/beijingzufang/</small>
                     </div>
                     <div class="form-group">
+                        <label for="config-cookie">豆瓣 Cookie</label>
+                        <input type="password" id="config-cookie" placeholder="留空则使用默认 Cookie">
+                        <small>用于访问豆瓣小组的 Cookie，留空则使用系统默认配置</small>
+                    </div>
+                    <div class="form-group">
                         <label for="keywords">关键词（多个用逗号分隔）</label>
                         <input type="text" id="keywords" placeholder="一居室,两居室,合租">
                     </div>
@@ -318,6 +360,12 @@
                         <label>
                             <input type="checkbox" id="config-enabled" checked> 启用此配置
                         </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="config-crawl-comments" checked> 爬取评论
+                        </label>
+                        <small>勾选后，爬虫会同时爬取帖子的评论；取消勾选则只爬取帖子内容，不爬取评论</small>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">保存配置</button>

@@ -53,6 +53,10 @@ public class RepositoryService {
     public void updatePost(Post post) {
         postDao.updatePost(post);
     }
+    
+    public void updatePostBotReply(Post post) {
+        postDao.updateBotReply(post);
+    }
 
     public boolean checkPostTitleExists(String title) {
         return postDao.checkPostTitleExists(title);
@@ -68,6 +72,10 @@ public class RepositoryService {
 
     public List<Post> getPostsByGroupId(String groupId, int limit) {
         return postDao.getPostsByGroupId(groupId, limit);
+    }
+    
+    public Post getOneUnrepliedPost() {
+        return postDao.getOneUnrepliedPost();
     }
 
     // Comment methods

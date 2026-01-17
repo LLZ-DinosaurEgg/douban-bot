@@ -7,7 +7,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -33,7 +32,8 @@ public class CrawlerScheduler {
 
         for (String groupId : groups) {
             try {
-                crawlerService.crawl(groupId, pages, keywords, exclude);
+                // 使用全局配置的cookie，默认爬取评论
+                crawlerService.crawl(groupId, pages, keywords, exclude, config.getCookie(), true);
             } catch (Exception e) {
                 log.error("爬取小组 {} 失败: {}", groupId, e.getMessage(), e);
             }

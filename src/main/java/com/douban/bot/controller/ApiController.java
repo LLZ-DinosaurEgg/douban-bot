@@ -171,6 +171,10 @@ public class ApiController {
                 config.put("maxHistoryComments", botConfigRow.maxHistoryComments());
                 config.put("enableStyleLearning", botConfigRow.enableStyleLearning() != null && botConfigRow.enableStyleLearning());
                 config.put("customPrompt", botConfigRow.customPrompt() != null ? botConfigRow.customPrompt() : "");
+                config.put("hasCookie", botConfigRow.cookie() != null && !botConfigRow.cookie().isEmpty());
+                config.put("cookie", botConfigRow.cookie() != null && !botConfigRow.cookie().isEmpty() ? "****" : "");
+                config.put("replySpeedMultiplier", botConfigRow.replySpeedMultiplier() != null ? botConfigRow.replySpeedMultiplier() : 1.0);
+                config.put("replyCheckInterval", botConfigRow.replyTaskInterval() != null ? botConfigRow.replyTaskInterval() : 300);
             } else {
                 // 从 AppConfig 读取（兼容旧配置）
                 config.put("enabled", appConfig.getCrawlerBot() != null && appConfig.getCrawlerBot());
@@ -190,6 +194,10 @@ public class ApiController {
                 config.put("maxHistoryComments", appConfig.getCrawlerMaxHistoryComments());
                 config.put("enableStyleLearning", true); // 默认开启
                 config.put("customPrompt", ""); // 默认为空
+                config.put("hasCookie", appConfig.getCookie() != null && !appConfig.getCookie().isEmpty());
+                config.put("cookie", ""); // 从 AppConfig 读取时不显示 cookie
+                config.put("replySpeedMultiplier", 1.0); // 默认速度倍数
+                config.put("replyCheckInterval", 300); // 默认5分钟
             }
 
             Map<String, Object> response = new HashMap<>();
@@ -320,6 +328,13 @@ public class ApiController {
             Integer maxHistoryCommentsValue = current != null ? current.maxHistoryComments() : 200;
             boolean enableStyleLearningValue = current != null && current.enableStyleLearning() != null ? current.enableStyleLearning() : true;
             String customPromptValue = current != null && current.customPrompt() != null ? current.customPrompt() : "";
+            String cookieValue = current != null && current.cookie() != null ? current.cookie() : "";
+            Double replySpeedMultiplierValue = current != null && current.replySpeedMultiplier() != null && current.replySpeedMultiplier() > 0 
+                    ? current.replySpeedMultiplier() 
+                    : 1.0;
+            Integer replyTaskIntervalValue = current != null && current.replyTaskInterval() != null && current.replyTaskInterval() > 0 
+                    ? current.replyTaskInterval() 
+                    : 300;
             
             // 更新值
             if (request.containsKey("enabled")) {
@@ -403,6 +418,44 @@ public class ApiController {
                 customPromptValue = request.get("customPrompt") != null ? request.get("customPrompt").toString() : "";
             }
             
+            if (request.containsKey("cookie") && request.get("cookie") != null) {
+                String newCookie = request.get("cookie").toString();
+                // 如果 Cookie 不为空且不是掩码字符串，则更新
+                // 只有当用户实际输入了新值时才更新，空字符串或占位符则保留原有值
+                if (newCookie != null && !newCookie.isEmpty() && !newCookie.equals("****") && !newCookie.equals("null")) {
+                    cookieValue = newCookie;
+                    log.debug("更新 Cookie: 长度={}", newCookie.length());
+                } else {
+                    log.debug("保留原有 Cookie（未提供新值或值为空/占位符）");
+                }
+            } else {
+                log.debug("未提供 cookie 字段，保留原有 Cookie");
+            }
+            
+            if (request.containsKey("replySpeedMultiplier")) {
+                try {
+                    Double speedMultiplier = Double.valueOf(request.get("replySpeedMultiplier").toString());
+                    if (speedMultiplier > 0) {
+                        replySpeedMultiplierValue = speedMultiplier;
+                        log.debug("更新回复速度倍数: {}", speedMultiplier);
+                    }
+                } catch (Exception e) {
+                    log.warn("解析回复速度倍数失败: {}", e.getMessage());
+                }
+            }
+            
+            if (request.containsKey("replyTaskInterval")) {
+                try {
+                    Integer interval = Integer.valueOf(request.get("replyTaskInterval").toString());
+                    if (interval > 0) {
+                        replyTaskIntervalValue = interval;
+                        log.debug("更新定时任务间隔: {}秒", interval);
+                    }
+                } catch (Exception e) {
+                    log.warn("解析定时任务间隔失败: {}", e.getMessage());
+                }
+            }
+            
             // 提取到 final 变量以便在 lambda 中使用
             final boolean enabled = enabledValue;
             final String llmApiType = llmApiTypeValue;
@@ -418,13 +471,17 @@ public class ApiController {
             final Integer maxHistoryComments = maxHistoryCommentsValue;
             final boolean enableStyleLearning = enableStyleLearningValue;
             final String customPrompt = customPromptValue;
+            final String cookie = cookieValue;
+            final Double replySpeedMultiplier = replySpeedMultiplierValue;
+            final Integer replyTaskInterval = replyTaskIntervalValue;
             
             // 保存到数据库
             final String updatedAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
             jdbi.useExtension(BotConfigDao.class, dao -> 
                 dao.update(enabled, llmApiType, llmApiBase, llmApiKey, llmModel, llmTemperature, 
                         llmMaxTokens, replyKeywords, minReplyDelay, maxReplyDelay, 
-                        maxHistoryPosts, maxHistoryComments, enableStyleLearning, customPrompt, updatedAt)
+                        maxHistoryPosts, maxHistoryComments, enableStyleLearning, customPrompt, cookie, 
+                        replySpeedMultiplier, replyTaskInterval, updatedAt)
             );
             
             // 同步更新 AppConfig（使配置立即生效）

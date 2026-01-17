@@ -21,19 +21,19 @@ public interface CrawlerConfigDao {
     ObjectMapper objectMapper = new ObjectMapper();
 
     @SqlQuery("SELECT id, name, group_url as groupUrl, group_id as groupId, keywords, exclude_keywords as excludeKeywords, " +
-            "pages, sleep_seconds as sleepSeconds, enabled, created_at as createdAt, updated_at as updatedAt " +
+            "pages, sleep_seconds as sleepSeconds, enabled, cookie, crawl_comments as crawlComments, created_at as createdAt, updated_at as updatedAt " +
             "FROM CrawlerConfig WHERE id = :id")
     @RegisterConstructorMapper(CrawlerConfigRow.class)
     Optional<CrawlerConfigRow> findById(@Bind("id") Long id);
 
     @SqlQuery("SELECT id, name, group_url as groupUrl, group_id as groupId, keywords, exclude_keywords as excludeKeywords, " +
-            "pages, sleep_seconds as sleepSeconds, enabled, created_at as createdAt, updated_at as updatedAt " +
+            "pages, sleep_seconds as sleepSeconds, enabled, cookie, crawl_comments as crawlComments, created_at as createdAt, updated_at as updatedAt " +
             "FROM CrawlerConfig ORDER BY created_at DESC")
     @RegisterConstructorMapper(CrawlerConfigRow.class)
     List<CrawlerConfigRow> findAll();
 
-    @SqlUpdate("INSERT INTO CrawlerConfig (name, group_url, group_id, keywords, exclude_keywords, pages, sleep_seconds, enabled, created_at, updated_at) " +
-            "VALUES (:name, :groupUrl, :groupId, :keywords, :excludeKeywords, :pages, :sleepSeconds, :enabled, :createdAt, :updatedAt)")
+    @SqlUpdate("INSERT INTO CrawlerConfig (name, group_url, group_id, keywords, exclude_keywords, pages, sleep_seconds, enabled, cookie, crawl_comments, created_at, updated_at) " +
+            "VALUES (:name, :groupUrl, :groupId, :keywords, :excludeKeywords, :pages, :sleepSeconds, :enabled, :cookie, :crawlComments, :createdAt, :updatedAt)")
     @Transaction
     void insert(@Bind("name") String name,
                 @Bind("groupUrl") String groupUrl,
@@ -43,12 +43,14 @@ public interface CrawlerConfigDao {
                 @Bind("pages") Integer pages,
                 @Bind("sleepSeconds") Integer sleepSeconds,
                 @Bind("enabled") boolean enabled,
+                @Bind("cookie") String cookie,
+                @Bind("crawlComments") boolean crawlComments,
                 @Bind("createdAt") String createdAt,
                 @Bind("updatedAt") String updatedAt);
 
     @SqlUpdate("UPDATE CrawlerConfig SET name = :name, group_url = :groupUrl, group_id = :groupId, keywords = :keywords, " +
             "exclude_keywords = :excludeKeywords, pages = :pages, sleep_seconds = :sleepSeconds, enabled = :enabled, " +
-            "updated_at = :updatedAt WHERE id = :id")
+            "cookie = :cookie, crawl_comments = :crawlComments, updated_at = :updatedAt WHERE id = :id")
     @Transaction
     void update(@Bind("id") Long id,
                 @Bind("name") String name,
@@ -59,6 +61,8 @@ public interface CrawlerConfigDao {
                 @Bind("pages") Integer pages,
                 @Bind("sleepSeconds") Integer sleepSeconds,
                 @Bind("enabled") boolean enabled,
+                @Bind("cookie") String cookie,
+                @Bind("crawlComments") boolean crawlComments,
                 @Bind("updatedAt") String updatedAt);
 
     @SqlUpdate("DELETE FROM CrawlerConfig WHERE id = :id")
@@ -78,7 +82,7 @@ public interface CrawlerConfigDao {
         CrawlerConfigRow row = toCrawlerConfigRow(config);
         insert(row.name(), row.groupUrl(), row.groupId(), row.keywords(), 
                row.excludeKeywords(), row.pages(), row.sleepSeconds(), 
-               row.enabled(), row.createdAt(), row.updatedAt());
+               row.enabled(), row.cookie(), row.crawlComments(), row.createdAt(), row.updatedAt());
         // 注意：由于 SQLite 的限制，我们需要在同一个连接中获取 ID
         // 这需要在调用方使用 handle 来处理
         // 暂时返回 config，ID 将在 RepositoryService 中设置
@@ -89,7 +93,7 @@ public interface CrawlerConfigDao {
         CrawlerConfigRow row = toCrawlerConfigRow(config);
         update(row.id(), row.name(), row.groupUrl(), row.groupId(), row.keywords(),
                row.excludeKeywords(), row.pages(), row.sleepSeconds(), 
-               row.enabled(), row.updatedAt());
+               row.enabled(), row.cookie(), row.crawlComments(), row.updatedAt());
     }
 
     default void deleteConfig(Long id) {
@@ -117,6 +121,8 @@ public interface CrawlerConfigDao {
                     config.getPages() != null ? config.getPages() : 10,
                     config.getSleepSeconds() != null ? config.getSleepSeconds() : 900,
                     config.getEnabled() != null && config.getEnabled(),
+                    config.getCookie() != null ? config.getCookie() : "",
+                    config.getCrawlComments() != null ? config.getCrawlComments() : true,
                     createdAt,
                     updatedAt
             );
@@ -151,6 +157,8 @@ public interface CrawlerConfigDao {
                     .pages(row.pages())
                     .sleepSeconds(row.sleepSeconds())
                     .enabled(row.enabled())
+                    .cookie(row.cookie() != null ? row.cookie() : "")
+                    .crawlComments(row.crawlComments())
                     .createdAt(createdAt)
                     .updatedAt(updatedAt)
                     .build();
@@ -162,6 +170,6 @@ public interface CrawlerConfigDao {
     record CrawlerConfigRow(
             Long id, String name, String groupUrl, String groupId, String keywords, 
             String excludeKeywords, Integer pages, Integer sleepSeconds, boolean enabled,
-            String createdAt, String updatedAt
+            String cookie, boolean crawlComments, String createdAt, String updatedAt
     ) {}
 }

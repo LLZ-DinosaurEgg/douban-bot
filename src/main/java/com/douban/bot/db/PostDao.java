@@ -22,12 +22,14 @@ public interface PostDao {
     
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
+            "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
             "created, updated, created_at as createdAt FROM \"Post\" WHERE post_id = :postId")
     @RegisterConstructorMapper(PostRow.class)
     Optional<PostRow> findByPostId(@Bind("postId") String postId);
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
+            "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
             "created, updated, created_at as createdAt FROM \"Post\" WHERE title = :title LIMIT 1")
     @RegisterConstructorMapper(PostRow.class)
     Optional<PostRow> findByTitle(@Bind("title") String title);
@@ -37,6 +39,7 @@ public interface PostDao {
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
+            "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
             "created, updated, created_at as createdAt FROM \"Post\" " +
             "WHERE (:groupId IS NULL OR group_id = :groupId) " +
             "ORDER BY created DESC LIMIT :limit OFFSET :offset")
@@ -45,10 +48,20 @@ public interface PostDao {
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
+            "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
             "created, updated, created_at as createdAt FROM \"Post\" " +
             "WHERE group_id = :groupId ORDER BY created DESC LIMIT :limit")
     @RegisterConstructorMapper(PostRow.class)
     List<PostRow> findByGroupId(@Bind("groupId") String groupId, @Bind("limit") int limit);
+    
+    @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
+            "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
+            "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
+            "created, updated, created_at as createdAt FROM \"Post\" " +
+            "WHERE is_matched = 1 AND (bot_replied IS NULL OR bot_replied = 0) " +
+            "ORDER BY created ASC LIMIT 1")
+    @RegisterConstructorMapper(PostRow.class)
+    Optional<PostRow> findOneUnrepliedPost();
 
     @SqlUpdate("INSERT INTO \"Post\" (post_id, group_id, author_info, alt, title, content, photo_list, " +
             "is_matched, keyword_list, created, updated) " +
@@ -70,6 +83,13 @@ public interface PostDao {
     @SqlUpdate("UPDATE \"Post\" SET title = :title, updated = :updated WHERE post_id = :postId")
     @Transaction
     void update(@Bind("postId") String postId, @Bind("title") String title, @Bind("updated") String updated);
+    
+    @SqlUpdate("UPDATE \"Post\" SET bot_replied = :botReplied, bot_reply_content = :botReplyContent, bot_reply_at = :botReplyAt WHERE post_id = :postId")
+    @Transaction
+    void updateBotReply(@Bind("postId") String postId, 
+                       @Bind("botReplied") boolean botReplied,
+                       @Bind("botReplyContent") String botReplyContent,
+                       @Bind("botReplyAt") String botReplyAt);
 
     default Post getPostByPostId(String postId) {
         return findByPostId(postId).map(this::toPost).orElse(null);
@@ -90,6 +110,16 @@ public interface PostDao {
         String updated = post.getUpdated() != null ? post.getUpdated().format(DATETIME_FORMAT) : LocalDateTime.now().format(DATETIME_FORMAT);
         update(post.getPostId(), post.getTitle(), updated);
     }
+    
+    default void updateBotReply(Post post) {
+        String botReplyAt = post.getBotReplyAt() != null 
+                ? post.getBotReplyAt().format(DATETIME_FORMAT) 
+                : LocalDateTime.now().format(DATETIME_FORMAT);
+        updateBotReply(post.getPostId(), 
+                      post.getBotReplied() != null && post.getBotReplied(),
+                      post.getBotReplyContent() != null ? post.getBotReplyContent() : "",
+                      botReplyAt);
+    }
 
     default List<Post> getPostsWithPagination(String groupId, int page, int pageSize) {
         int offset = (page - 1) * pageSize;
@@ -105,6 +135,10 @@ public interface PostDao {
         List<PostRow> rows = findByGroupId(groupId, limit);
         return rows.stream().map(this::toPost).toList();
     }
+    
+    default Post getOneUnrepliedPost() {
+        return findOneUnrepliedPost().map(this::toPost).orElse(null);
+    }
 
     private PostRow toPostRow(Post post) {
         try {
@@ -114,10 +148,15 @@ public interface PostDao {
             String created = post.getCreated() != null ? post.getCreated().format(DATETIME_FORMAT) : LocalDateTime.now().format(DATETIME_FORMAT);
             String updated = post.getUpdated() != null ? post.getUpdated().format(DATETIME_FORMAT) : LocalDateTime.now().format(DATETIME_FORMAT);
 
+            String botReplyAt = post.getBotReplyAt() != null ? post.getBotReplyAt().format(DATETIME_FORMAT) : null;
             return new PostRow(
                     post.getPostId(), post.getGroupId(), authorInfoJson, post.getAlt(), post.getTitle(),
                     post.getContent(), photoListJson, post.getIsMatched() != null && post.getIsMatched(),
-                    keywordListJson, created, updated
+                    keywordListJson, 
+                    post.getBotReplied() != null && post.getBotReplied(),
+                    post.getBotReplyContent(),
+                    botReplyAt,
+                    created, updated
             );
         } catch (Exception e) {
             throw new RuntimeException("Error converting Post to PostRow", e);
@@ -138,6 +177,9 @@ public interface PostDao {
 
             LocalDateTime created = row.created() != null ? LocalDateTime.parse(row.created(), DATETIME_FORMAT) : LocalDateTime.now();
             LocalDateTime updated = row.updated() != null ? LocalDateTime.parse(row.updated(), DATETIME_FORMAT) : LocalDateTime.now();
+            LocalDateTime botReplyAt = row.botReplyAt() != null && !row.botReplyAt().isEmpty() 
+                    ? LocalDateTime.parse(row.botReplyAt(), DATETIME_FORMAT) 
+                    : null;
 
             return Post.builder()
                     .postId(row.postId())
@@ -149,6 +191,9 @@ public interface PostDao {
                     .photoList(photoList)
                     .isMatched(row.isMatched())
                     .keywordList(keywordList)
+                    .botReplied(row.botReplied())
+                    .botReplyContent(row.botReplyContent())
+                    .botReplyAt(botReplyAt)
                     .created(created)
                     .updated(updated)
                     .build();
@@ -160,6 +205,7 @@ public interface PostDao {
     record PostRow(
             String postId, String groupId, String authorInfo, String alt, String title,
             String content, String photoList, boolean isMatched, String keywordList,
+            boolean botReplied, String botReplyContent, String botReplyAt,
             String created, String updated
     ) {}
 }

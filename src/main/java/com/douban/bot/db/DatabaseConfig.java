@@ -31,14 +31,78 @@ public class DatabaseConfig {
 
         String url = "jdbc:sqlite:" + dbPath;
         
-        // 初始化表结构
+        // 初始化表结构，如果数据库损坏则自动重建
         try (Connection conn = DriverManager.getConnection(url);
              Statement stmt = conn.createStatement()) {
+            // 先尝试执行一个简单查询来检测数据库是否损坏
+            try {
+                stmt.execute("PRAGMA integrity_check;");
+            } catch (SQLException e) {
+                // 如果数据库损坏，备份并重建
+                if (e.getMessage().contains("malformed") || e.getMessage().contains("corrupt")) {
+                    System.err.println("检测到数据库损坏，正在备份并重建数据库...");
+                    backupAndRecreateDatabase(dbFile);
+                    // 重新连接
+                    try (Connection newConn = DriverManager.getConnection(url);
+                         Statement newStmt = newConn.createStatement()) {
+                        initTables(newStmt);
+                    }
+                    System.out.println("数据库重建完成");
+                    return new SimpleDataSource(url);
+                } else {
+                    throw e;
+                }
+            }
             initTables(stmt);
+        } catch (SQLException e) {
+            // 如果初始化表时出错，可能是数据库损坏
+            if (e.getMessage().contains("malformed") || e.getMessage().contains("corrupt")) {
+                System.err.println("检测到数据库损坏，正在备份并重建数据库...");
+                backupAndRecreateDatabase(dbFile);
+                // 重新连接并初始化
+                try (Connection conn = DriverManager.getConnection(url);
+                     Statement stmt = conn.createStatement()) {
+                    initTables(stmt);
+                }
+                System.out.println("数据库重建完成");
+            } else {
+                throw e;
+            }
         }
         
         // 返回 DataSource (使用简单的实现)
         return new SimpleDataSource(url);
+    }
+    
+    private void backupAndRecreateDatabase(File dbFile) {
+        if (dbFile.exists()) {
+            try {
+                // 备份损坏的数据库文件
+                File backupFile = new File(dbFile.getParent(), dbFile.getName() + ".corrupt." + System.currentTimeMillis());
+                if (dbFile.renameTo(backupFile)) {
+                    System.out.println("已备份损坏的数据库文件到: " + backupFile.getName());
+                } else {
+                    // 如果重命名失败，尝试复制
+                    try (java.io.FileInputStream fis = new java.io.FileInputStream(dbFile);
+                         java.io.FileOutputStream fos = new java.io.FileOutputStream(backupFile)) {
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = fis.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                        }
+                    }
+                    dbFile.delete();
+                    System.out.println("已备份损坏的数据库文件到: " + backupFile.getName());
+                }
+            } catch (Exception e) {
+                System.err.println("备份数据库文件失败: " + e.getMessage());
+                // 如果备份失败，直接删除损坏的文件
+                if (dbFile.exists()) {
+                    dbFile.delete();
+                    System.out.println("已删除损坏的数据库文件");
+                }
+            }
+        }
     }
 
     @Bean
@@ -163,6 +227,56 @@ public class DatabaseConfig {
         }
         try {
             stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"custom_prompt\" TEXT NOT NULL DEFAULT ''");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"CrawlerConfig\" ADD COLUMN \"cookie\" TEXT NOT NULL DEFAULT ''");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"cookie\" TEXT NOT NULL DEFAULT ''");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"CrawlerConfig\" ADD COLUMN \"crawl_comments\" INTEGER NOT NULL DEFAULT 1");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"Post\" ADD COLUMN \"bot_replied\" INTEGER NOT NULL DEFAULT 0");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"Post\" ADD COLUMN \"bot_reply_content\" TEXT");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"Post\" ADD COLUMN \"bot_reply_at\" TEXT");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"reply_speed_multiplier\" REAL NOT NULL DEFAULT 1.0");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"reply_check_interval\" INTEGER NOT NULL DEFAULT 300");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"reply_task_interval\" INTEGER NOT NULL DEFAULT 300");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"reply_task_interval\" INTEGER NOT NULL DEFAULT 60");
         } catch (SQLException e) {
             // 字段已存在，忽略错误
         }

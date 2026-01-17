@@ -29,25 +29,56 @@ public class LlmClient {
             .build();
 
     public String generateReply(String systemPrompt, String userPrompt) throws IOException {
-        if (config.getLlmApiKey() == null || config.getLlmApiKey().isEmpty()) {
+        return generateReply(systemPrompt, userPrompt, null, null, null, null, null);
+    }
+    
+    public String generateReply(String systemPrompt, String userPrompt, 
+                                String apiBase, String apiKey, String model, 
+                                Double temperature, Integer maxTokens) throws IOException {
+        // 使用传入的配置，如果没有则使用 AppConfig 的默认值
+        String useApiBase = (apiBase != null && !apiBase.trim().isEmpty()) 
+                ? apiBase 
+                : (config.getLlmApiBase() != null && !config.getLlmApiBase().trim().isEmpty() 
+                    ? config.getLlmApiBase() 
+                    : "https://api.openai.com/v1");
+        String useApiKey = (apiKey != null && !apiKey.trim().isEmpty()) 
+                ? apiKey 
+                : config.getLlmApiKey();
+        String useModel = (model != null && !model.trim().isEmpty()) 
+                ? model 
+                : config.getLlmModel();
+        Double useTemperature = temperature != null ? temperature : config.getLlmTemperature();
+        Integer useMaxTokens = maxTokens != null ? maxTokens : config.getLlmMaxTokens();
+        
+        if (useApiKey == null || useApiKey.isEmpty()) {
             throw new IOException("API密钥未配置");
+        }
+        
+        if (useApiBase == null || useApiBase.trim().isEmpty()) {
+            throw new IOException("API Base URL未配置");
         }
 
         ChatRequest request = new ChatRequest();
-        request.setModel(config.getLlmModel());
+        request.setModel(useModel);
         request.setMessages(List.of(
                 new Message("system", systemPrompt),
                 new Message("user", userPrompt)
         ));
-        request.setTemperature(config.getLlmTemperature());
-        request.setMaxTokens(config.getLlmMaxTokens());
+        request.setTemperature(useTemperature);
+        request.setMaxTokens(useMaxTokens);
 
         try {
             String jsonRequest = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(request);
+            String apiUrl = useApiBase.endsWith("/") 
+                    ? useApiBase + "chat/completions" 
+                    : useApiBase + "/chat/completions";
+            
+            log.debug("调用LLM API: url={}, model={}", apiUrl, useModel);
+            
             HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(config.getLlmApiBase() + "/chat/completions"))
+                    .uri(URI.create(apiUrl))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + config.getLlmApiKey())
+                    .header("Authorization", "Bearer " + useApiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(jsonRequest))
                     .timeout(Duration.ofSeconds(60))
                     .build();

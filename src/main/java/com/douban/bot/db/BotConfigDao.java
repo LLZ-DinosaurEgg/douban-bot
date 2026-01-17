@@ -21,8 +21,9 @@ public interface BotConfigDao {
             "llm_model as llmModel, llm_temperature as llmTemperature, llm_max_tokens as llmMaxTokens, " +
             "reply_keywords as replyKeywords, min_reply_delay as minReplyDelay, max_reply_delay as maxReplyDelay, " +
             "max_history_posts as maxHistoryPosts, max_history_comments as maxHistoryComments, " +
-            "enable_style_learning as enableStyleLearning, custom_prompt as customPrompt, updated_at as updatedAt " +
-            "FROM BotConfig WHERE id = 1 LIMIT 1")
+            "enable_style_learning as enableStyleLearning, custom_prompt as customPrompt, cookie, " +
+            "reply_speed_multiplier as replySpeedMultiplier, reply_task_interval as replyTaskInterval, " +
+            "updated_at as updatedAt FROM BotConfig WHERE id = 1 LIMIT 1")
     @RegisterConstructorMapper(BotConfigRow.class)
     BotConfigRow findById();
 
@@ -31,7 +32,8 @@ public interface BotConfigDao {
             "llm_max_tokens = :llmMaxTokens, reply_keywords = :replyKeywords, min_reply_delay = :minReplyDelay, " +
             "max_reply_delay = :maxReplyDelay, max_history_posts = :maxHistoryPosts, " +
             "max_history_comments = :maxHistoryComments, enable_style_learning = :enableStyleLearning, " +
-            "custom_prompt = :customPrompt, updated_at = :updatedAt WHERE id = 1")
+            "custom_prompt = :customPrompt, cookie = :cookie, reply_speed_multiplier = :replySpeedMultiplier, " +
+            "reply_task_interval = :replyTaskInterval, updated_at = :updatedAt WHERE id = 1")
     @Transaction
     void update(@Bind("enabled") boolean enabled,
                 @Bind("llmApiType") String llmApiType,
@@ -47,6 +49,9 @@ public interface BotConfigDao {
                 @Bind("maxHistoryComments") Integer maxHistoryComments,
                 @Bind("enableStyleLearning") boolean enableStyleLearning,
                 @Bind("customPrompt") String customPrompt,
+                @Bind("cookie") String cookie,
+                @Bind("replySpeedMultiplier") Double replySpeedMultiplier,
+                @Bind("replyTaskInterval") Integer replyTaskInterval,
                 @Bind("updatedAt") String updatedAt);
 
     record BotConfigRow(
@@ -65,6 +70,9 @@ public interface BotConfigDao {
             Integer maxHistoryComments,
             Boolean enableStyleLearning,
             String customPrompt,
+            String cookie,
+            Double replySpeedMultiplier,
+            Integer replyTaskInterval,
             String updatedAt
     ) {}
 }

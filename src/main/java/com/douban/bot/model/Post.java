@@ -29,6 +29,9 @@ public class Post {
     private List<String> keywordList;
     private String comment;
     private Boolean isCollected;
+    private Boolean botReplied;  // 是否已自动回复
+    private String botReplyContent;  // 自动回复内容
+    private LocalDateTime botReplyAt;  // 自动回复时间
     private LocalDateTime created;
     private LocalDateTime updated;
     private LocalDateTime createdAt;

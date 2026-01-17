@@ -174,6 +174,7 @@ function createPostCard(post) {
             <span>作者: ${escapeHtml(authorName)}</span>
             <span>时间: ${created}</span>
             ${post.isMatched ? '<span style="color: #28a745;">✓ 已匹配</span>' : ''}
+            ${post.botReplied ? '<span style="color: #007bff; margin-left: 10px;">🤖 已自动回复</span>' : ''}
         </div>
         ${content ? `<div class="post-content">${escapeHtml(content.substring(0, 200))}${content.length > 200 ? '...' : ''}</div>` : ''}
         ${keywords.length > 0 ? `
@@ -222,6 +223,7 @@ async function showPostDetail(postId) {
                     <span>创建时间: ${created}</span>
                     <span>更新时间: ${updated}</span>
                     ${post.isMatched ? '<span style="color: #28a745;">✓ 已匹配</span>' : ''}
+                    ${post.botReplied ? '<span style="color: #007bff; margin-left: 10px;">🤖 已自动回复</span>' : ''}
                 </div>
                 ${keywords.length > 0 ? `
                     <div class="post-keywords" style="margin-bottom: 20px;">
@@ -229,6 +231,15 @@ async function showPostDetail(postId) {
                     </div>
                 ` : ''}
                 <div class="post-detail-content">${escapeHtml(post.content || '无内容')}</div>
+                ${post.botReplied && post.botReplyContent ? `
+                    <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px;">
+                        <div style="font-weight: bold; color: #007bff; margin-bottom: 10px;">
+                            🤖 自动回复内容
+                            ${post.botReplyAt ? `<span style="font-size: 12px; color: #6c757d; font-weight: normal; margin-left: 10px;">(${formatDate(post.botReplyAt)})</span>` : ''}
+                        </div>
+                        <div style="color: #333; white-space: pre-wrap; line-height: 1.6;">${escapeHtml(post.botReplyContent)}</div>
+                    </div>
+                ` : ''}
                 ${post.alt ? `<div style="margin-top: 15px;"><a href="${post.alt}" target="_blank" style="color: #667eea;">查看原帖 →</a></div>` : ''}
                 ${comments.length > 0 ? `
                     <div class="comments-section">
@@ -448,6 +459,12 @@ function createConfigCard(config) {
                 <span>${config.sleepSeconds || 900} 秒</span>
             </div>
             <div class="config-item">
+                <label>爬取评论:</label>
+                <span style="color: ${config.crawlComments !== false ? '#28a745' : '#dc3545'}">
+                    ${config.crawlComments !== false ? '✅ 是' : '❌ 否'}
+                </span>
+            </div>
+            <div class="config-item">
                 <label>创建时间:</label>
                 <span>${formatDate(config.createdAt)}</span>
             </div>
@@ -473,11 +490,21 @@ function openConfigModal(config = null) {
         document.getElementById('config-id').value = config.id;
         document.getElementById('config-name').value = config.name || '';
         document.getElementById('group-url').value = config.groupUrl || '';
+        // Cookie 字段：如果已有配置，显示占位符，留空则不修改
+        const cookieInput = document.getElementById('config-cookie');
+        if (config.cookie && config.cookie.length > 0) {
+            cookieInput.placeholder = '****（已有配置，留空则不修改）';
+            cookieInput.value = '';
+        } else {
+            cookieInput.placeholder = '留空则使用默认 Cookie';
+            cookieInput.value = '';
+        }
         document.getElementById('keywords').value = config.keywords ? config.keywords.join(',') : '';
         document.getElementById('exclude-keywords').value = config.excludeKeywords ? config.excludeKeywords.join(',') : '';
         document.getElementById('pages').value = config.pages || 10;
         document.getElementById('sleep-seconds').value = config.sleepSeconds || 900;
         document.getElementById('config-enabled').checked = config.enabled !== false;
+        document.getElementById('config-crawl-comments').checked = config.crawlComments !== false;
     } else {
         title.textContent = '添加爬虫配置';
         form.reset();
@@ -485,6 +512,7 @@ function openConfigModal(config = null) {
         document.getElementById('pages').value = 10;
         document.getElementById('sleep-seconds').value = 900;
         document.getElementById('config-enabled').checked = true;
+        document.getElementById('config-crawl-comments').checked = true;
     }
     
     modal.classList.add('show');
@@ -500,6 +528,9 @@ async function saveConfig() {
     const form = document.getElementById('config-form');
     const configId = document.getElementById('config-id').value;
     
+    const cookieInput = document.getElementById('config-cookie');
+    const cookie = cookieInput.value.trim();
+    
     const config = {
         name: document.getElementById('config-name').value,
         groupUrl: document.getElementById('group-url').value,
@@ -507,8 +538,15 @@ async function saveConfig() {
         excludeKeywords: document.getElementById('exclude-keywords').value,
         pages: parseInt(document.getElementById('pages').value) || 10,
         sleepSeconds: parseInt(document.getElementById('sleep-seconds').value) || 900,
-        enabled: document.getElementById('config-enabled').checked
+        enabled: document.getElementById('config-enabled').checked,
+        crawlComments: document.getElementById('config-crawl-comments').checked
     };
+    
+    // 只有当用户输入了新的 Cookie 时才添加到请求中
+    // 如果为空，则不发送 cookie 字段，后端会保留原有的 Cookie
+    if (cookie && cookie.length > 0) {
+        config.cookie = cookie;
+    }
 
     try {
         const url = configId ? `/api/config/crawler/${configId}` : '/api/config/crawler';
@@ -647,6 +685,9 @@ function setupBotTabListeners() {
         e.preventDefault();
         saveBotConfig();
     });
+    
+    // 切换机器人状态按钮
+    document.getElementById('toggle-bot-btn')?.addEventListener('click', toggleBotStatus);
 }
 
 // 打开大模型配置表单
@@ -702,6 +743,21 @@ async function loadBotConfig() {
             document.getElementById('bot-enabled-status').textContent = config.enabled ? '✅ 已启用' : '❌ 已禁用';
             document.getElementById('bot-enabled-status').style.color = config.enabled ? '#28a745' : '#dc3545';
             
+            // 更新切换按钮
+            const toggleBtn = document.getElementById('toggle-bot-btn');
+            const toggleBtnText = document.getElementById('toggle-bot-btn-text');
+            if (toggleBtn && toggleBtnText) {
+                if (config.enabled) {
+                    toggleBtn.classList.remove('btn-primary');
+                    toggleBtn.classList.add('btn-danger');
+                    toggleBtnText.textContent = '停止';
+                } else {
+                    toggleBtn.classList.remove('btn-danger');
+                    toggleBtn.classList.add('btn-primary');
+                    toggleBtnText.textContent = '启动';
+                }
+            }
+            
             document.getElementById('bot-api-status').textContent = config.hasApiKey ? '✅ 已配置' : '❌ 未配置';
             document.getElementById('bot-api-status').style.color = config.hasApiKey ? '#28a745' : '#dc3545';
             
@@ -719,6 +775,29 @@ async function loadBotConfig() {
                 : '-';
             document.getElementById('bot-reply-delay').textContent = delay;
             
+            const speedMultiplier = config.replySpeedMultiplier != null ? config.replySpeedMultiplier : 1.0;
+            let speedText = speedMultiplier.toFixed(1);
+            if (speedMultiplier < 1.0) {
+                speedText += ' (快速模式)';
+            } else if (speedMultiplier > 1.0) {
+                speedText += ' (慢速模式)';
+            } else {
+                speedText += ' (正常速度)';
+            }
+            document.getElementById('bot-reply-speed-multiplier-display').textContent = speedText;
+            
+            const checkInterval = config.replyCheckInterval != null ? config.replyCheckInterval : 300;
+            const intervalMinutes = Math.floor(checkInterval / 60);
+            const intervalSeconds = checkInterval % 60;
+            let intervalText = checkInterval + ' 秒';
+            if (intervalMinutes > 0) {
+                intervalText = intervalMinutes + ' 分';
+                if (intervalSeconds > 0) {
+                    intervalText += intervalSeconds + ' 秒';
+                }
+            }
+            document.getElementById('bot-reply-check-interval-display').textContent = intervalText;
+            
             document.getElementById('bot-history-posts').textContent = config.maxHistoryPosts || '-';
             document.getElementById('bot-history-comments').textContent = config.maxHistoryComments || '-';
             
@@ -733,6 +812,14 @@ async function loadBotConfig() {
                 document.getElementById('bot-custom-prompt-display').textContent = customPrompt;
             } else {
                 document.getElementById('bot-custom-prompt-display').textContent = '未配置（将使用默认 prompt 或学习风格）';
+            }
+            
+            // 显示 Cookie 配置状态
+            const hasCookie = config.hasCookie || false;
+            const cookieStatus = document.getElementById('bot-cookie-status');
+            if (cookieStatus) {
+                cookieStatus.textContent = hasCookie ? '✅ 已配置' : '❌ 未配置（将使用默认 Cookie）';
+                cookieStatus.style.color = hasCookie ? '#28a745' : '#dc3545';
             }
         }
     } catch (error) {
@@ -782,6 +869,8 @@ async function loadBotConfigToForm() {
             document.getElementById('bot-reply-keywords-input').value = config.replyKeywords ? config.replyKeywords.join(', ') : '';
             document.getElementById('bot-min-reply-delay').value = config.minReplyDelay || 30;
             document.getElementById('bot-max-reply-delay').value = config.maxReplyDelay || 300;
+            document.getElementById('bot-reply-speed-multiplier').value = config.replySpeedMultiplier != null ? config.replySpeedMultiplier : 1.0;
+            document.getElementById('bot-reply-check-interval').value = config.replyCheckInterval != null ? config.replyCheckInterval : 300;
             document.getElementById('bot-history-posts-input').value = config.maxHistoryPosts || 50;
             document.getElementById('bot-history-comments-input').value = config.maxHistoryComments || 200;
             
@@ -789,6 +878,16 @@ async function loadBotConfigToForm() {
             const enableStyleLearning = config.enableStyleLearning !== undefined ? config.enableStyleLearning : true;
             document.getElementById('bot-enable-style-learning-input').checked = enableStyleLearning;
             document.getElementById('bot-custom-prompt-input').value = config.customPrompt || '';
+            
+            // 填充 Cookie 字段
+            const cookieInput = document.getElementById('bot-cookie-input');
+            if (config.hasCookie) {
+                cookieInput.placeholder = '****（已有配置，留空则不修改）';
+                cookieInput.value = '';
+            } else {
+                cookieInput.placeholder = '留空则使用默认 Cookie';
+                cookieInput.value = '';
+            }
         }
     } catch (error) {
         console.error('加载机器人配置到表单失败:', error);
@@ -850,16 +949,27 @@ async function saveBotConfig() {
     const form = document.getElementById('bot-config-edit-form');
     if (!form) return;
     
+    const cookieInput = document.getElementById('bot-cookie-input');
+    const cookie = cookieInput.value.trim();
+    
     const config = {
         enabled: document.getElementById('bot-enabled').checked,
         replyKeywords: document.getElementById('bot-reply-keywords-input').value.trim(),
         minReplyDelay: parseInt(document.getElementById('bot-min-reply-delay').value) || 30,
         maxReplyDelay: parseInt(document.getElementById('bot-max-reply-delay').value) || 300,
+        replySpeedMultiplier: parseFloat(document.getElementById('bot-reply-speed-multiplier').value) || 1.0,
+        replyCheckInterval: parseInt(document.getElementById('bot-reply-check-interval').value) || 300,
         maxHistoryPosts: parseInt(document.getElementById('bot-history-posts-input').value) || 50,
         maxHistoryComments: parseInt(document.getElementById('bot-history-comments-input').value) || 200,
         enableStyleLearning: document.getElementById('bot-enable-style-learning-input').checked,
         customPrompt: document.getElementById('bot-custom-prompt-input').value.trim()
     };
+    
+    // 只有当用户输入了新的 Cookie 时才添加到请求中
+    // 如果为空，则不发送 cookie 字段，后端会保留原有的 Cookie
+    if (cookie && cookie.length > 0) {
+        config.cookie = cookie;
+    }
     
     try {
         const response = await fetch('/api/bot/config', {
@@ -976,4 +1086,46 @@ function copyTestReply() {
         console.error('复制失败:', err);
         alert('复制失败，请手动复制');
     });
+}
+
+// 切换机器人状态
+async function toggleBotStatus() {
+    try {
+        // 先获取当前配置
+        const response = await fetch('/api/bot/config');
+        const result = await response.json();
+        
+        if (!result.success || !result.data) {
+            alert('获取机器人配置失败');
+            return;
+        }
+        
+        const currentEnabled = result.data.enabled;
+        const newEnabled = !currentEnabled;
+        
+        // 更新配置
+        const updateResponse = await fetch('/api/bot/config', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                enabled: newEnabled
+            })
+        });
+        
+        const updateResult = await updateResponse.json();
+        
+        if (updateResult.success) {
+            // 刷新配置显示
+            await loadBotConfig();
+            alert(newEnabled ? '✅ 机器人已启动' : '⏸️ 机器人已停止');
+        } else {
+            const errorMsg = updateResult.error || '切换状态失败';
+            alert('切换状态失败: ' + errorMsg);
+        }
+    } catch (error) {
+        console.error('切换机器人状态失败:', error);
+        alert('切换状态失败: ' + error.message);
+    }
 }

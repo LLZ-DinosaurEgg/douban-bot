@@ -26,18 +26,22 @@ public class CrawlerService {
 
     private final RepositoryService repository;
     private final AppConfig config;
+    private final ReplyBotService replyBotService;
     
     private static final DateTimeFormatter DATETIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Pattern KEYWORD_PATTERN_BASE = Pattern.compile("(.?)");
 
-    public void crawl(String groupId, int pages, List<String> keywords, List<String> exclude) {
-        log.info("开始爬取小组: {}", groupId);
+    public void crawl(String groupId, int pages, List<String> keywords, List<String> exclude, String cookie, boolean crawlComments) {
+        log.info("开始爬取小组: {}, 爬取评论: {}", groupId, crawlComments);
+        
+        // 如果配置中没有cookie，使用全局配置的cookie
+        String useCookie = (cookie != null && !cookie.trim().isEmpty()) ? cookie : config.getCookie();
 
         // 检查小组是否存在
         Group group = repository.getGroupById(groupId);
         if (group == null) {
             // 爬取小组信息
-            group = crawlGroupInfo(groupId);
+            group = crawlGroupInfo(groupId, useCookie);
             if (group != null) {
                 repository.createGroup(group);
                 log.info("创建小组: {} 成功", groupId);
@@ -53,12 +57,12 @@ public class CrawlerService {
             
             String url = String.format(config.getGroupTopicsBaseUrl(), groupId) + "?start=" + (page * 25);
             try {
-                String html = HttpUtils.fetchContent(url, config.getCookie());
+                String html = HttpUtils.fetchContent(url, useCookie);
                 Document doc = Jsoup.parse(html);
                 List<Map<String, Object>> posts = HtmlParser.parsePosts(doc);
                 
                 for (Map<String, Object> postMap : posts) {
-                    processPost(postMap, group, keywords, exclude);
+                    processPost(postMap, group, keywords, exclude, useCookie, crawlComments);
                 }
             } catch (IOException e) {
                 log.error("爬取第 {} 页失败: {}", page + 1, e.getMessage());
@@ -66,11 +70,12 @@ public class CrawlerService {
         }
     }
 
-    private Group crawlGroupInfo(String groupId) {
+    private Group crawlGroupInfo(String groupId, String cookie) {
         try {
             HttpUtils.randomSleep(2000, 5000);
             String url = String.format(config.getGroupInfoBaseUrl(), groupId);
-            String html = HttpUtils.fetchContent(url, config.getCookie());
+            String useCookie = (cookie != null && !cookie.trim().isEmpty()) ? cookie : config.getCookie();
+            String html = HttpUtils.fetchContent(url, useCookie);
             Document doc = Jsoup.parse(html);
             return HtmlParser.parseGroupInfo(doc, groupId, config.getGroupInfoBaseUrl());
         } catch (IOException e) {
@@ -79,7 +84,7 @@ public class CrawlerService {
         }
     }
 
-    private void processPost(Map<String, Object> postMap, Group group, List<String> keywords, List<String> exclude) {
+    private void processPost(Map<String, Object> postMap, Group group, List<String> keywords, List<String> exclude, String cookie, boolean crawlComments) {
         String title = (String) postMap.get("title");
         String postUrl = (String) postMap.get("alt");
         String postId = (String) postMap.get("id");
@@ -88,7 +93,8 @@ public class CrawlerService {
         Map<String, Object> detail;
         try {
             HttpUtils.randomSleep(2500, 7500);
-            String html = HttpUtils.fetchContent(postUrl, config.getCookie());
+            String useCookie = (cookie != null && !cookie.trim().isEmpty()) ? cookie : config.getCookie();
+            String html = HttpUtils.fetchContent(postUrl, useCookie);
             Document doc = Jsoup.parse(html);
             detail = HtmlParser.parsePostDetail(doc);
         } catch (IOException e) {
@@ -132,13 +138,25 @@ public class CrawlerService {
         // 匹配关键词
         List<String> matchedKeywords = new java.util.ArrayList<>();
         boolean isMatched = false;
-        for (String keyword : keywords) {
-            if (keyword.isEmpty()) continue;
-            String pattern = keyword.replaceAll("(.)", "$1.?");
-            Pattern p = Pattern.compile(pattern);
-            if (p.matcher(title).find() || p.matcher(content).find()) {
-                matchedKeywords.add(keyword);
-                isMatched = true;
+        
+        // 过滤空关键词
+        List<String> validKeywords = keywords.stream()
+                .filter(k -> k != null && !k.trim().isEmpty())
+                .toList();
+        
+        // 如果没有配置关键词，默认所有帖子都匹配
+        if (validKeywords.isEmpty()) {
+            isMatched = true;
+            log.debug("未配置关键词，默认匹配所有帖子: 帖子={}", postId);
+        } else {
+            // 有关键词时，进行匹配
+            for (String keyword : validKeywords) {
+                String pattern = keyword.replaceAll("(.)", "$1.?");
+                Pattern p = Pattern.compile(pattern);
+                if (p.matcher(title).find() || p.matcher(content).find()) {
+                    matchedKeywords.add(keyword);
+                    isMatched = true;
+                }
             }
         }
 
@@ -184,14 +202,29 @@ public class CrawlerService {
         repository.createPost(post);
         log.info("保存帖子: {}", postId);
 
-        // 爬取并保存评论
-        crawlAndSaveComments(postId, group.getGroupId(), postUrl);
+        // 根据配置决定是否爬取并保存评论
+        if (crawlComments) {
+            String useCookie = (cookie != null && !cookie.trim().isEmpty()) ? cookie : config.getCookie();
+            crawlAndSaveComments(postId, group.getGroupId(), postUrl, useCookie);
+        } else {
+            log.debug("跳过爬取评论: 帖子={}, 配置中已禁用", postId);
+        }
+        
+        // 不再在爬取时触发自动回复，改为由定时任务统一处理
+        if (isMatched) {
+            log.debug("帖子已保存，等待定时任务处理回复: 小组={}, 帖子={}, 匹配关键词={}", 
+                    group.getGroupId(), postId, matchedKeywords);
+        } else {
+            log.debug("帖子未匹配关键词: 小组={}, 帖子={}, 关键词={}", 
+                    group.getGroupId(), postId, validKeywords);
+        }
     }
 
-    private void crawlAndSaveComments(String postId, String groupId, String postUrl) {
+    private void crawlAndSaveComments(String postId, String groupId, String postUrl, String cookie) {
         try {
             HttpUtils.randomSleep(2000, 5000);
-            String html = HttpUtils.fetchContent(postUrl, config.getCookie());
+            String useCookie = (cookie != null && !cookie.trim().isEmpty()) ? cookie : config.getCookie();
+            String html = HttpUtils.fetchContent(postUrl, useCookie);
             Document doc = Jsoup.parse(html);
             List<Map<String, Object>> comments = HtmlParser.parseComments(doc);
 
