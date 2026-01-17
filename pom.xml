@@ -45,12 +45,12 @@
         <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
-            <version>3.42.1</version>
+            <version>3.45.4</version>
         </dependency>
         <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-sqlobject</artifactId>
-            <version>3.42.1</version>
+            <version>3.45.4</version>
         </dependency>
 
         <!-- Jsoup for HTML parsing -->

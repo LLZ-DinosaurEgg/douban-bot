@@ -109,8 +109,27 @@ public class DatabaseConfig {
             """;
         stmt.execute(commentTableSQL);
 
+        // CrawlerConfig表 - 存储爬虫配置
+        String configTableSQL = """
+            CREATE TABLE IF NOT EXISTS "CrawlerConfig" (
+                "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                "name" TEXT NOT NULL,
+                "group_url" TEXT NOT NULL,
+                "group_id" TEXT NOT NULL,
+                "keywords" TEXT NOT NULL DEFAULT '[]',
+                "exclude_keywords" TEXT NOT NULL DEFAULT '[]',
+                "pages" INTEGER NOT NULL DEFAULT 10,
+                "sleep_seconds" INTEGER NOT NULL DEFAULT 900,
+                "enabled" INTEGER NOT NULL DEFAULT 1,
+                "created_at" TEXT NOT NULL DEFAULT (datetime('now')),
+                "updated_at" TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """;
+        stmt.execute(configTableSQL);
+
         // 创建索引
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_comment_post_id ON \"Comment\"(post_id);");
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_comment_group_id ON \"Comment\"(group_id);");
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_config_enabled ON \"CrawlerConfig\"(enabled);");
     }
 }

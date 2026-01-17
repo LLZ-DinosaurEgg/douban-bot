@@ -1,6 +1,7 @@
 package com.douban.bot.db;
 
 import com.douban.bot.model.Comment;
+import com.douban.bot.model.CrawlerConfig;
 import com.douban.bot.model.Group;
 import com.douban.bot.model.Post;
 import org.jdbi.v3.core.Jdbi;
@@ -16,11 +17,13 @@ public class RepositoryService {
     private final GroupDao groupDao;
     private final PostDao postDao;
     private final CommentDao commentDao;
+    private final CrawlerConfigDao crawlerConfigDao;
 
     public RepositoryService(Jdbi jdbi) {
         this.groupDao = jdbi.onDemand(GroupDao.class);
         this.postDao = jdbi.onDemand(PostDao.class);
         this.commentDao = jdbi.onDemand(CommentDao.class);
+        this.crawlerConfigDao = jdbi.onDemand(CrawlerConfigDao.class);
     }
 
     // Group methods
@@ -90,5 +93,14 @@ public class RepositoryService {
         // TODO: Add comment count query
         stats.put("comments", 0);
         return stats;
+    }
+
+    // CrawlerConfig methods
+    public List<CrawlerConfig> getAllCrawlerConfigs() {
+        return crawlerConfigDao.getAllConfigs();
+    }
+
+    public CrawlerConfig getCrawlerConfigById(Long id) {
+        return crawlerConfigDao.getConfigById(id).orElse(null);
     }
 }

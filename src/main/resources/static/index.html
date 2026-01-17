@@ -3,13 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>豆瓣小组爬虫管理界面</title>
+    <title>🥚 恐龙蛋的豆瓣爬虫管理界面</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📚 豆瓣小组爬虫管理界面</h1>
+            <div class="header-brand">
+                <h1>🥚 恐龙蛋的豆瓣爬虫管理界面</h1>
+                <p class="header-subtitle">可爱又实用的数据采集工具 💕</p>
+            </div>
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="data">数据管理</button>
+                <button class="tab-btn" data-tab="config">爬虫配置</button>
+            </nav>
             <div class="stats" id="stats">
                 <div class="stat-item">
                     <span class="stat-label">小组</span>
@@ -27,17 +34,19 @@
         </header>
 
         <main>
-            <div class="sidebar">
-                <h2>小组列表</h2>
-                <div class="group-filter">
-                    <input type="text" id="group-search" placeholder="搜索小组...">
+            <!-- 数据管理标签页 -->
+            <div id="data-tab" class="tab-content active">
+                <div class="sidebar">
+                    <h2>📋 小组列表</h2>
+                    <div class="group-filter">
+                        <input type="text" id="group-search" placeholder="搜索小组...">
+                    </div>
+                    <ul class="group-list" id="group-list">
+                        <li class="loading">加载中...</li>
+                    </ul>
                 </div>
-                <ul class="group-list" id="group-list">
-                    <li class="loading">加载中...</li>
-                </ul>
-            </div>
 
-            <div class="content">
+                <div class="content">
                 <div class="toolbar">
                     <div class="filter-group">
                         <label>
@@ -52,6 +61,20 @@
                 </div>
 
                 <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+
+            <!-- 爬虫配置标签页 -->
+            <div id="config-tab" class="tab-content">
+                <div class="config-container">
+                    <div class="config-header">
+                        <h2>🥚 爬虫配置管理</h2>
+                        <button class="btn btn-primary" id="add-config-btn">✨ 添加配置</button>
+                    </div>
+                    <div class="config-list" id="config-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -60,6 +83,53 @@
             <div class="modal-content">
                 <span class="close" id="close-modal">&times;</span>
                 <div id="post-detail"></div>
+            </div>
+        </div>
+
+        <!-- 配置编辑模态框 -->
+        <div class="modal" id="config-modal">
+            <div class="modal-content large">
+                <span class="close" id="close-config-modal">&times;</span>
+                <h2 id="config-modal-title">🥚 添加爬虫配置</h2>
+                <form id="config-form">
+                    <input type="hidden" id="config-id">
+                    <div class="form-group">
+                        <label for="config-name">配置名称 *</label>
+                        <input type="text" id="config-name" required placeholder="例如：北京租房 🏠">
+                    </div>
+                    <div class="form-group">
+                        <label for="group-url">小组链接 *</label>
+                        <input type="url" id="group-url" required placeholder="https://www.douban.com/group/beijingzufang/">
+                        <small>输入完整的小组链接，例如：https://www.douban.com/group/beijingzufang/</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="keywords">关键词（多个用逗号分隔）</label>
+                        <input type="text" id="keywords" placeholder="一居室,两居室,合租">
+                    </div>
+                    <div class="form-group">
+                        <label for="exclude-keywords">排除关键词（多个用逗号分隔）</label>
+                        <input type="text" id="exclude-keywords" placeholder="中介,广告">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pages">爬取页数</label>
+                            <input type="number" id="pages" min="1" max="100" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label for="sleep-seconds">睡眠时长（秒）</label>
+                            <input type="number" id="sleep-seconds" min="1" value="900">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="config-enabled" checked> 启用此配置
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存配置</button>
+                        <button type="button" class="btn btn-secondary" id="cancel-config-btn">取消</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

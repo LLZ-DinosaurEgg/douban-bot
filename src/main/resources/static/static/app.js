@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadGroups();
     setupEventListeners();
+    setupConfigTabListeners();
 });
 
 // 设置事件监听
@@ -321,4 +322,283 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ============== 配置管理功能 ==============
+
+// 设置配置标签页监听器
+function setupConfigTabListeners() {
+    // 标签页切换
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            
+            if (tab === 'config') {
+                loadConfigs();
+            }
+        });
+    });
+
+    // 添加配置按钮
+    document.getElementById('add-config-btn').addEventListener('click', () => {
+        openConfigModal();
+    });
+
+    // 配置表单提交
+    document.getElementById('config-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveConfig();
+    });
+
+    // 关闭配置模态框
+    document.getElementById('close-config-modal').addEventListener('click', () => {
+        closeConfigModal();
+    });
+
+    document.getElementById('cancel-config-btn').addEventListener('click', () => {
+        closeConfigModal();
+    });
+
+    document.getElementById('config-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'config-modal') {
+            closeConfigModal();
+        }
+    });
+}
+
+// 加载配置列表
+async function loadConfigs() {
+    const container = document.getElementById('config-list');
+    container.innerHTML = '<div class="loading">加载中...</div>';
+
+    try {
+        const response = await fetch('/api/config/crawler');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            if (result.data.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无配置，点击"添加配置"按钮创建</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            result.data.forEach(config => {
+                const card = createConfigCard(config);
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<div class="error">加载配置失败</div>';
+        }
+    } catch (error) {
+        console.error('加载配置失败:', error);
+        container.innerHTML = '<div class="error">加载失败</div>';
+    }
+}
+
+// 创建配置卡片
+function createConfigCard(config) {
+    const card = document.createElement('div');
+    card.className = 'config-card';
+    
+    const keywords = config.keywords && config.keywords.length > 0 
+        ? config.keywords.join(', ') 
+        : '无';
+    const exclude = config.excludeKeywords && config.excludeKeywords.length > 0 
+        ? config.excludeKeywords.join(', ') 
+        : '无';
+
+    card.innerHTML = `
+        <div class="config-card-header">
+            <h3>${escapeHtml(config.name)}</h3>
+            <span class="config-status ${config.enabled ? 'enabled' : 'disabled'}">
+                ${config.enabled ? '✓ 已启用' : '✗ 已禁用'}
+            </span>
+        </div>
+        <div class="config-card-body">
+            <div class="config-item">
+                <label>小组链接:</label>
+                <span>${escapeHtml(config.groupUrl)}</span>
+            </div>
+            <div class="config-item">
+                <label>小组ID:</label>
+                <span>${escapeHtml(config.groupId || '')}</span>
+            </div>
+            <div class="config-item">
+                <label>关键词:</label>
+                <span>${escapeHtml(keywords)}</span>
+            </div>
+            <div class="config-item">
+                <label>排除关键词:</label>
+                <span>${escapeHtml(exclude)}</span>
+            </div>
+            <div class="config-item">
+                <label>爬取页数:</label>
+                <span>${config.pages || 10}</span>
+            </div>
+            <div class="config-item">
+                <label>睡眠时长:</label>
+                <span>${config.sleepSeconds || 900} 秒</span>
+            </div>
+            <div class="config-item">
+                <label>创建时间:</label>
+                <span>${formatDate(config.createdAt)}</span>
+            </div>
+        </div>
+        <div class="config-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="runCrawler(${config.id})">立即运行</button>
+            <button class="btn btn-secondary btn-sm" onclick="editConfig(${config.id})">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteConfig(${config.id})">删除</button>
+        </div>
+    `;
+
+    return card;
+}
+
+// 打开配置模态框
+function openConfigModal(config = null) {
+    const modal = document.getElementById('config-modal');
+    const form = document.getElementById('config-form');
+    const title = document.getElementById('config-modal-title');
+    
+    if (config) {
+        title.textContent = '编辑爬虫配置';
+        document.getElementById('config-id').value = config.id;
+        document.getElementById('config-name').value = config.name || '';
+        document.getElementById('group-url').value = config.groupUrl || '';
+        document.getElementById('keywords').value = config.keywords ? config.keywords.join(',') : '';
+        document.getElementById('exclude-keywords').value = config.excludeKeywords ? config.excludeKeywords.join(',') : '';
+        document.getElementById('pages').value = config.pages || 10;
+        document.getElementById('sleep-seconds').value = config.sleepSeconds || 900;
+        document.getElementById('config-enabled').checked = config.enabled !== false;
+    } else {
+        title.textContent = '添加爬虫配置';
+        form.reset();
+        document.getElementById('config-id').value = '';
+        document.getElementById('pages').value = 10;
+        document.getElementById('sleep-seconds').value = 900;
+        document.getElementById('config-enabled').checked = true;
+    }
+    
+    modal.classList.add('show');
+}
+
+// 关闭配置模态框
+function closeConfigModal() {
+    document.getElementById('config-modal').classList.remove('show');
+}
+
+// 保存配置
+async function saveConfig() {
+    const form = document.getElementById('config-form');
+    const configId = document.getElementById('config-id').value;
+    
+    const config = {
+        name: document.getElementById('config-name').value,
+        groupUrl: document.getElementById('group-url').value,
+        keywords: document.getElementById('keywords').value,
+        excludeKeywords: document.getElementById('exclude-keywords').value,
+        pages: parseInt(document.getElementById('pages').value) || 10,
+        sleepSeconds: parseInt(document.getElementById('sleep-seconds').value) || 900,
+        enabled: document.getElementById('config-enabled').checked
+    };
+
+    try {
+        const url = configId ? `/api/config/crawler/${configId}` : '/api/config/crawler';
+        const method = configId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeConfigModal();
+            loadConfigs();
+            alert('配置保存成功！');
+        } else {
+            alert('保存失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        console.error('保存配置失败:', error);
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 编辑配置
+async function editConfig(id) {
+    try {
+        const response = await fetch(`/api/config/crawler/${id}`);
+        const result = await response.json();
+
+        if (result.success) {
+            openConfigModal(result.data);
+        } else {
+            alert('加载配置失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        console.error('加载配置失败:', error);
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 删除配置
+async function deleteConfig(id) {
+    if (!confirm('确定要删除这个配置吗？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/config/crawler/${id}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            loadConfigs();
+            alert('配置已删除');
+        } else {
+            alert('删除失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        console.error('删除配置失败:', error);
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 运行爬虫
+async function runCrawler(id) {
+    if (!confirm('确定要立即运行这个爬虫配置吗？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/config/crawler/${id}/run`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('爬虫任务已启动！请稍后查看数据。');
+            // 3秒后刷新统计信息
+            setTimeout(() => {
+                loadStats();
+            }, 3000);
+        } else {
+            alert('启动失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        console.error('启动爬虫失败:', error);
+        alert('启动失败: ' + error.message);
+    }
 }

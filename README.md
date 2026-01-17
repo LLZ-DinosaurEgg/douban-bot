@@ -1,10 +1,20 @@
-# 豆瓣小组爬虫与自动回复机器人
+# 🥚 恐龙蛋的豆瓣小组爬虫机器人
 
-一个基于 Java Spring Boot 开发的豆瓣小组爬虫工具，支持自动爬取小组帖子、评论，并集成大模型智能回复功能。
+<div align="center">
 
-## 📋 项目简介
+![恐龙蛋](https://img.shields.io/badge/作者-恐龙蛋-ff6b9d?style=for-the-badge)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-brightgreen?style=for-the-badge)
+![Java](https://img.shields.io/badge/Java-17+-orange?style=for-the-badge)
 
-本项目是一个功能完整的豆瓣小组数据采集和自动回复系统，主要功能包括：
+</div>
+
+---
+
+一个基于 Java Spring Boot 开发的豆瓣小组爬虫工具，由 🥚 **恐龙蛋** 精心制作，支持自动爬取小组帖子、评论，并集成大模型智能回复功能。
+
+## 🥚 项目简介
+
+这是 **恐龙蛋** 制作的一个功能完整的豆瓣小组数据采集和自动回复系统，主要功能包括：
 
 - **智能爬虫**：自动爬取豆瓣小组的帖子和评论数据
 - **关键词过滤**：支持关键词匹配和排除，精准筛选目标内容
@@ -463,6 +473,14 @@ A: 通过 `CRAWLER_SLEEP` 环境变量或 `app.crawler-sleep` 配置项设置，
 
 A: 设置 `CRAWLER_BOT=true` 并配置 `LLM_API_KEY` 环境变量即可。
 
+## 🥚 关于作者
+
+**恐龙蛋** 🥚 
+
+一个喜欢编程、喜欢可爱事物的开发者 💕
+
+如果你喜欢这个项目，欢迎给个 ⭐ Star！
+
 ## 📝 开发计划
 
 - [ ] 支持更多大模型 API（Claude、本地模型等）
@@ -470,6 +488,7 @@ A: 设置 `CRAWLER_BOT=true` 并配置 `LLM_API_KEY` 环境变量即可。
 - [ ] 添加数据导出功能
 - [ ] 支持更多数据可视化
 - [ ] 添加用户认证功能
+- [ ] 更多可爱的界面元素 🎨
 
 ## 📄 许可证
 
@@ -479,6 +498,16 @@ A: 设置 `CRAWLER_BOT=true` 并配置 `LLM_API_KEY` 环境变量即可。
 
 欢迎提交 Issue 和 Pull Request！
 
+特别感谢所有为这个项目贡献的朋友们 💕
+
 ## 📮 联系方式
 
 如有问题或建议，请通过 Issue 反馈。
+
+---
+
+<div align="center">
+
+**Made with 💕 by 恐龙蛋 🥚**
+
+</div>
