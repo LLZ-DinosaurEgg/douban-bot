@@ -1,6 +1,6 @@
 # 豆瓣小组爬虫与自动回复机器人
 
-一个基于 Go 语言开发的豆瓣小组爬虫工具，支持自动爬取小组帖子、评论，并集成大模型智能回复功能。
+一个基于 Java Spring Boot 开发的豆瓣小组爬虫工具，支持自动爬取小组帖子、评论，并集成大模型智能回复功能。
 
 ## 📋 项目简介
 
@@ -11,6 +11,7 @@
 - **数据存储**：使用 SQLite 数据库持久化存储爬取的数据
 - **风格学习**：分析小组历史帖子和评论，学习回复风格
 - **智能回复**：基于大模型 API，生成符合小组风格的自动回复
+- **Web 管理界面**：现代化的 Web 界面，实时查看爬取的数据
 
 ## ✨ 功能特性
 
@@ -21,6 +22,7 @@
 - ✅ 支持关键词匹配和排除
 - ✅ 自动去重，避免重复存储
 - ✅ 随机延迟，降低被封风险
+- ✅ 定时任务自动执行
 
 ### Web 管理界面
 - ✅ 现代化的 Web 界面，美观易用
@@ -41,57 +43,209 @@
 
 ## 🛠️ 技术栈
 
-- **后端语言**: Go 1.24+
+- **后端框架**: Spring Boot 3.2.0
+- **编程语言**: Java 17+
 - **数据库**: SQLite3
-- **HTML解析**: goquery
-- **HTTP客户端**: net/http
-- **Web服务器**: Go 标准库 net/http
+- **数据库访问**: JDBI3
+- **HTML解析**: Jsoup
+- **HTTP客户端**: Apache HttpClient 5
+- **Web服务器**: Spring Boot 内嵌 Tomcat
 - **前端**: 原生 HTML/CSS/JavaScript（无框架依赖）
 - **大模型API**: 支持 OpenAI 兼容的 API
+- **构建工具**: Maven 3.9+
+- **定时任务**: Spring Scheduler
 
-## 📦 安装
+## 📦 安装部署
 
-### 前置要求
+### 方式一：Docker 一键部署（推荐）
 
-- Go 1.24 或更高版本
+#### 前置要求
+
+- Docker 和 Docker Compose
 - 有效的豆瓣账号 Cookie（用于爬取）
 - 大模型 API 密钥（用于自动回复功能，可选）
 
-### 安装步骤
+#### 快速开始
 
-1. 克隆项目
+1. **克隆项目**
 ```bash
-git clone https://github.com/LLZ-DinosaurEgg/douban-crawler.git
-cd douban-crawler
+git clone https://github.com/your-username/douban-bot.git
+cd douban-bot
 ```
 
-2. 安装依赖
+2. **配置环境变量**
+
+创建 `.env` 文件（可参考 `env.example`）：
 ```bash
-go mod download
+cp env.example .env
+# 然后编辑 .env 文件，至少配置 DOUBAN_COOKIE 和 CRAWLER_GROUPS
 ```
 
-3. 配置 Cookie
-   - 登录豆瓣网站
-   - 获取浏览器 Cookie
-   - 在 `config/config.go` 中设置 `COOKIE` 变量
+或者手动创建 `.env` 文件：
+```bash
+# 豆瓣Cookie（必需）
+# 注意：如果 Cookie 包含分号、空格等特殊字符，请使用引号包裹（单引号或双引号都可以）
+DOUBAN_COOKIE='your_douban_cookie_here'
+# 或者
+DOUBAN_COOKIE="your_douban_cookie_here"
 
-4. 配置大模型 API（如使用自动回复功能）
-   - 在 `config/config.go` 中设置 `LLM_API_KEY`
-   - 可选：修改 `LLM_API_BASE`、`LLM_MODEL` 等配置
+# 大模型API配置（可选，自动回复功能需要）
+LLM_API_KEY=your_api_key_here
+LLM_API_BASE=https://api.openai.com/v1
+LLM_MODEL=gpt-3.5-turbo
+LLM_TEMPERATURE=0.7
+LLM_MAX_TOKENS=500
+
+# 爬虫配置
+CRAWLER_GROUPS=beijingzufang,shanghaizufang
+CRAWLER_KEYWORDS=一居室,两居室,合租
+CRAWLER_EXCLUDE=中介,广告
+CRAWLER_PAGES=10
+CRAWLER_SLEEP=900
+CRAWLER_BOT=false
+CRAWLER_REPLY_KEYWORDS=
+CRAWLER_MIN_REPLY_DELAY=30
+CRAWLER_MAX_REPLY_DELAY=300
+CRAWLER_MAX_HISTORY_POSTS=50
+CRAWLER_MAX_HISTORY_COMMENTS=200
+CRAWLER_DEBUG=false
+
+# Web服务端口（可选，默认8080）
+WEB_PORT=8080
+```
+
+3. **一键启动服务**
+
+使用部署脚本（推荐）：
+```bash
+# 启动所有服务（会自动检查配置、创建目录、构建镜像）
+./deploy.sh start
+
+# 或者直接使用 docker-compose
+docker-compose up -d --build
+```
+
+4. **访问 Web 界面**
+
+浏览器访问：`http://localhost:8080`（或你配置的端口）
+
+#### 部署脚本使用说明
+
+项目提供了便捷的部署脚本 `deploy.sh`，支持以下命令：
+
+```bash
+# 启动服务（默认命令）
+./deploy.sh start
+
+# 停止服务
+./deploy.sh stop
+
+# 重启服务
+./deploy.sh restart
+
+# 查看日志（所有服务）
+./deploy.sh logs
+
+# 查看指定服务日志
+./deploy.sh logs web      # 查看 Web 服务日志
+./deploy.sh logs crawler  # 查看爬虫服务日志
+
+# 查看服务状态
+./deploy.sh status
+```
+
+部署脚本会自动：
+- ✅ 检查 Docker 和 Docker Compose 是否安装
+- ✅ 检查 `.env` 文件是否存在（不存在会从 `env.example` 创建）
+- ✅ 验证必要的配置项（如 `DOUBAN_COOKIE`）
+- ✅ 创建必要的目录（如 `data` 目录）
+- ✅ 构建并启动所有服务
+
+#### Docker 部署说明
+
+- **数据持久化**：数据库文件存储在 `./data` 目录，容器重启后数据不会丢失
+- **服务分离**：
+  - `web` 服务：提供 Web 管理界面（默认端口 8080，可通过 `WEB_PORT` 环境变量修改）
+  - `crawler` 服务：运行爬虫任务（定时自动执行）
+- **环境变量配置**：所有配置通过 `.env` 文件设置，无需修改代码
+- **健康检查**：Web 服务包含健康检查，确保服务正常运行
+- **自动重启**：服务异常退出时会自动重启
+
+#### 网络问题排查
+
+如果构建镜像时遇到网络超时错误（如 `failed to fetch oauth token`），请配置 Docker 镜像加速器：
+
+**快速配置（推荐）**：
+```bash
+# 使用提供的配置脚本
+./setup-docker-mirror.sh
+```
+
+**手动配置**：
+1. 编辑 `~/.docker/daemon.json`（macOS/Linux）或 Docker Desktop 设置中的 Docker Engine（Windows）
+2. 添加镜像加速器配置（详见 `DOCKER_MIRROR_SETUP.md`）
+3. 重启 Docker 服务
+
+**常用镜像加速器**：
+- DaoCloud: `https://docker.m.daocloud.io`
+- DockerProxy: `https://dockerproxy.com`
+- 中科大: `https://docker.mirrors.ustc.edu.cn`
+
+### 方式二：本地开发部署
+
+#### 前置要求
+
+- Java 17 或更高版本
+- Maven 3.9 或更高版本
+- 有效的豆瓣账号 Cookie（用于爬取）
+- 大模型 API 密钥（用于自动回复功能，可选）
+
+#### 安装步骤
+
+1. **克隆项目**
+```bash
+git clone https://github.com/your-username/douban-bot.git
+cd douban-bot
+```
+
+2. **安装依赖**
+```bash
+mvn clean install
+```
+
+3. **配置环境变量**
+
+创建 `.env` 文件或设置系统环境变量：
+```bash
+export DOUBAN_COOKIE='your_douban_cookie_here'
+export CRAWLER_GROUPS='beijingzufang'
+export CRAWLER_KEYWORDS='一居室,两居室'
+export CRAWLER_BOT=true
+```
+
+或者编辑 `src/main/resources/application.yml` 文件。
+
+4. **运行应用**
+
+```bash
+# 使用 Maven 运行
+mvn spring-boot:run
+
+# 或者先打包再运行
+mvn clean package
+java -jar target/douban-bot-1.0.0.jar
+```
+
+5. **访问 Web 界面**
+
+浏览器访问：`http://localhost:8080`
 
 ## 🚀 使用方法
 
-### Web 管理界面（推荐）
+### Web 管理界面
 
-启动 Web 服务器，通过浏览器管理爬取的数据：
+启动应用后，通过浏览器管理爬取的数据：
 
-```bash
-go run cmd/web.go
-```
-
-然后在浏览器中访问：`http://localhost:8080`
-
-**Web 界面功能：**
 - 📊 实时统计信息（小组数、帖子数、评论数）
 - 📋 小组列表浏览和搜索
 - 📝 帖子列表查看，支持分页
@@ -99,167 +253,110 @@ go run cmd/web.go
 - 🏷️ 关键词标签显示
 - ✅ 匹配帖子筛选
 
-**Web 服务器参数：**
-- `-port`: Web服务器端口（默认：8080）
-- `-db`: 数据库文件路径（默认：./db.sqlite3）
+### 爬虫配置
 
-示例：
-```bash
-go run cmd/web.go -port 8080 -db ./db.sqlite3
+爬虫通过配置文件或环境变量进行配置：
+
+**配置文件方式**（`application.yml`）：
+```yaml
+app:
+  crawler-groups: beijingzufang,shanghaizufang
+  crawler-keywords: 一居室,两居室,合租
+  crawler-exclude: 中介,广告
+  crawler-pages: 10
+  crawler-sleep: 900
+  crawler-bot: false
 ```
 
-### 基础爬虫模式
-
-只爬取数据，不启用自动回复：
-
+**环境变量方式**：
 ```bash
-go run cmd/main.go -g "小组ID1,小组ID2" -k "关键词1,关键词2" -pages 10
+export CRAWLER_GROUPS='beijingzufang,shanghaizufang'
+export CRAWLER_KEYWORDS='一居室,两居室,合租'
+export CRAWLER_EXCLUDE='中介,广告'
+export CRAWLER_PAGES=10
+export CRAWLER_SLEEP=900
+export CRAWLER_BOT=false
 ```
 
-### 自动回复模式
+### 自动回复配置
 
-启用自动回复机器人：
+启用自动回复机器人需要配置：
 
-```bash
-go run cmd/main.go \
-  -g "小组ID" \
-  -k "关键词1,关键词2" \
-  -bot \
-  -reply-keywords "回复关键词1,回复关键词2" \
-  -min-reply-delay 30 \
-  -max-reply-delay 300
-```
-
-### 命令行参数说明
-
-| 参数 | 简写 | 说明 | 默认值 |
-|------|------|------|--------|
-| `-g` | - | 小组ID，多个用逗号分隔 | - |
-| `-k` | - | 关键词，多个用逗号分隔 | - |
-| `-e` | - | 排除关键词，多个用逗号分隔 | - |
-| `-pages` | - | 爬取页数 | 10 |
-| `-sleep` | - | 睡眠时长（秒） | 900 |
-| `-v` | - | 调试模式 | false |
-| `-bot` | - | 启用自动回复机器人 | false |
-| `-reply-keywords` | - | 需要回复的关键词（为空则回复所有匹配的帖子） | - |
-| `-min-reply-delay` | - | 最小回复延迟（秒） | 30 |
-| `-max-reply-delay` | - | 最大回复延迟（秒） | 300 |
-| `-max-history-posts` | - | 用于学习风格的最大历史帖子数 | 50 |
-| `-max-history-comments` | - | 用于学习风格的最大历史评论数 | 200 |
-
-### 使用示例
-
-#### 示例1：启动 Web 管理界面
-
-```bash
-# 使用默认端口 8080
-go run cmd/web.go
-
-# 指定端口和数据库路径
-go run cmd/web.go -port 9000 -db ./my_database.sqlite3
-```
-
-然后在浏览器访问 `http://localhost:8080` 查看数据。
-
-#### 示例2：爬取租房小组的房源信息
-
-```bash
-go run cmd/main.go \
-  -g "beijingzufang" \
-  -k "一居室,两居室,合租" \
-  -e "中介,广告" \
-  -pages 20 \
-  -sleep 1800
-```
-
-爬取完成后，可以启动 Web 服务器查看数据：
-```bash
-go run cmd/web.go
-```
-
-#### 示例3：启用自动回复，回复招聘相关帖子
-
-```bash
-go run cmd/main.go \
-  -g "job" \
-  -k "招聘,求职,工作" \
-  -bot \
-  -reply-keywords "招聘,岗位" \
-  -min-reply-delay 60 \
-  -max-reply-delay 600
-```
-
-#### 示例4：调试模式运行
-
-```bash
-go run cmd/main.go \
-  -g "test" \
-  -k "测试" \
-  -v \
-  -pages 5
+```yaml
+app:
+  crawler-bot: true
+  llm-api-key: your_api_key_here
+  crawler-reply-keywords: 招聘,求职
+  crawler-min-reply-delay: 30
+  crawler-max-reply-delay: 300
 ```
 
 ## ⚙️ 配置说明
 
-### 基础配置
+### 环境变量配置
 
-在 `config/config.go` 中修改以下配置：
-
-```go
-// 豆瓣 Cookie（必需）
-COOKIE = "your_douban_cookie_here"
-
-// 大模型 API 配置（自动回复功能需要）
-LLM_API_KEY = "your_api_key_here"
-LLM_API_BASE = "https://api.openai.com/v1"
-LLM_MODEL = "gpt-3.5-turbo"
-LLM_TEMPERATURE = 0.7
-LLM_MAX_TOKENS = 500
-```
+| 环境变量 | 说明 | 默认值 |
+|---------|------|--------|
+| `DOUBAN_COOKIE` | 豆瓣 Cookie（必需） | - |
+| `CRAWLER_GROUPS` | 小组ID，多个用逗号分隔 | - |
+| `CRAWLER_KEYWORDS` | 关键词，多个用逗号分隔 | - |
+| `CRAWLER_EXCLUDE` | 排除关键词，多个用逗号分隔 | - |
+| `CRAWLER_PAGES` | 爬取页数 | 10 |
+| `CRAWLER_SLEEP` | 睡眠时长（秒） | 900 |
+| `CRAWLER_BOT` | 是否启用自动回复机器人 | false |
+| `CRAWLER_REPLY_KEYWORDS` | 需要回复的关键词 | - |
+| `LLM_API_KEY` | 大模型 API 密钥 | - |
+| `LLM_API_BASE` | API 基础 URL | https://api.openai.com/v1 |
+| `LLM_MODEL` | 模型名称 | gpt-3.5-turbo |
+| `WEB_PORT` | Web 服务端口 | 8080 |
+| `DB_PATH` | 数据库文件路径 | ./db.sqlite3 |
 
 ### 数据库
 
-数据默认存储在 `./db.sqlite3`，包含以下表：
+数据默认存储在 `./db.sqlite3`（或配置的路径），包含以下表：
 
 - **Group**: 小组信息
 - **Post**: 帖子信息
 - **Comment**: 评论信息
 
+数据库会在应用首次启动时自动创建。
+
 ## 📁 项目结构
 
 ```
-douban-crawler/
-├── cmd/
-│   ├── main.go              # 爬虫主程序入口
-│   └── web.go               # Web服务器入口
-├── config/
-│   └── config.go            # 配置文件
-├── web/                      # Web前端文件
-│   ├── index.html           # 前端主页面
-│   └── static/              # 静态资源
-│       ├── style.css        # 样式文件
-│       └── app.js           # JavaScript逻辑
-├── internal/
-│   ├── bot/                 # 自动回复机器人
-│   │   ├── reply_bot.go     # 回复机器人核心逻辑
-│   │   └── style_learner.go # 风格学习器
-│   ├── crawler/             # 爬虫模块
-│   │   ├── crawler.go       # 爬虫核心逻辑
-│   │   └── parser.go        # HTML解析器
-│   ├── db/                  # 数据库模块
-│   │   ├── model/           # 数据模型
-│   │   │   ├── group.go
-│   │   │   ├── post.go
-│   │   │   └── comment.go
-│   │   └── sqlite/          # SQLite操作
-│   │       └── sqlite.go
-│   ├── llm/                 # 大模型客户端
-│   │   └── client.go
-│   ├── server/              # Web服务器
-│   │   └── server.go        # HTTP服务器和API路由
-│   └── utils/               # 工具函数
-│       └── http.go
-├── go.mod
+douban-bot/
+├── src/main/java/com/douban/bot/
+│   ├── DoubanBotApplication.java    # Spring Boot 应用入口
+│   ├── config/                      # 配置类
+│   │   ├── AppConfig.java
+│   │   └── DatabaseConfig.java
+│   ├── controller/                  # Web 控制器
+│   │   ├── ApiController.java       # REST API
+│   │   └── WebController.java       # 静态文件服务
+│   ├── db/                          # 数据访问层
+│   │   ├── GroupDao.java
+│   │   ├── PostDao.java
+│   │   ├── CommentDao.java
+│   │   └── RepositoryService.java
+│   ├── model/                       # 数据模型
+│   │   ├── Group.java
+│   │   ├── Post.java
+│   │   └── Comment.java
+│   ├── service/                     # 业务服务
+│   │   ├── CrawlerService.java      # 爬虫服务
+│   │   ├── CrawlerScheduler.java    # 定时任务
+│   │   ├── HtmlParser.java          # HTML 解析
+│   │   ├── LlmClient.java           # LLM 客户端
+│   │   └── ReplyBotService.java     # 自动回复
+│   └── utils/                       # 工具类
+│       └── HttpUtils.java
+├── src/main/resources/
+│   ├── application.yml              # Spring Boot 配置
+│   └── static/                      # 前端静态文件
+├── pom.xml                          # Maven 配置
+├── Dockerfile.java                  # Docker 构建文件
+├── docker-compose.yml               # Docker Compose 配置
+├── deploy.sh                        # 部署脚本
 └── README.md
 ```
 
@@ -267,15 +364,16 @@ douban-crawler/
 
 ### 爬虫流程
 
-1. 根据小组ID和关键词配置，爬取帖子列表
-2. 对每个帖子，爬取详细内容和评论
-3. 根据关键词和排除词过滤帖子
-4. 将数据存储到 SQLite 数据库
-5. 循环执行，定期更新数据
+1. 定时任务触发爬虫（默认每 15 分钟）
+2. 根据小组ID和关键词配置，爬取帖子列表
+3. 对每个帖子，爬取详细内容和评论
+4. 根据关键词和排除词过滤帖子
+5. 将数据存储到 SQLite 数据库
+6. 如果启用自动回复，处理需要回复的帖子
 
 ### Web 服务器流程
 
-1. **启动服务器**：监听指定端口，提供 HTTP 服务
+1. **启动服务器**：Spring Boot 内嵌 Tomcat 监听指定端口
 2. **API 路由**：提供 RESTful API 接口
    - `GET /api/groups` - 获取所有小组
    - `GET /api/posts?group_id=xxx&page=1&page_size=20` - 获取帖子列表
@@ -290,7 +388,7 @@ douban-crawler/
 1. **风格学习**：分析小组历史帖子和评论，提取：
    - 常用词汇和短语
    - 平均回复长度
-   - 回复模式（疑问句、感叹句、表情符号使用等）
+   - 回复模式（语气、风格等）
 
 2. **生成系统提示词**：基于学习到的风格特征，构建大模型系统提示词
 
@@ -307,7 +405,7 @@ douban-crawler/
    - 建议使用环境变量或配置文件（不纳入版本控制）
 
 2. **爬取频率**：
-   - 建议设置合理的 `-sleep` 参数，避免请求过于频繁
+   - 建议设置合理的 `CRAWLER_SLEEP` 参数，避免请求过于频繁
    - 默认 900 秒（15分钟）循环一次
 
 3. **大模型 API**：
@@ -327,6 +425,17 @@ douban-crawler/
 
 ## 🔍 常见问题
 
+### Q: 如何配置包含特殊字符的 Cookie？
+
+A: 如果 Cookie 中包含分号、空格等特殊字符，请在 `.env` 文件中使用引号包裹：
+```bash
+# 使用单引号（推荐）
+DOUBAN_COOKIE='your_cookie_with_semicolons;and_spaces here'
+
+# 或使用双引号
+DOUBAN_COOKIE="your_cookie_with_semicolons;and_spaces here"
+```
+
 ### Q: 如何获取豆瓣 Cookie？
 
 A: 
@@ -342,39 +451,25 @@ A: 目前支持 OpenAI 兼容的 API，包括：
 - OpenAI GPT 系列
 - 其他兼容 OpenAI API 格式的服务
 
-### Q: 如何修改回复风格？
-
-A: 可以通过调整以下参数：
-- `-max-history-posts`: 增加历史帖子数量，学习更多风格
-- `-max-history-comments`: 增加历史评论数量
-- 修改 `config/config.go` 中的 `LLM_TEMPERATURE` 参数
-
 ### Q: 数据库文件在哪里？
 
-A: 默认在项目根目录下的 `db.sqlite3` 文件。
+A: 默认在项目根目录下的 `db.sqlite3` 文件，或通过 `DB_PATH` 环境变量配置的路径。
 
-### Q: 如何使用 Web 管理界面？
+### Q: 如何修改爬虫执行频率？
 
-A: 
-1. 先运行爬虫程序爬取数据（`go run cmd/main.go`）
-2. 启动 Web 服务器（`go run cmd/web.go`）
-3. 在浏览器中访问 `http://localhost:8080`
-4. 在界面中浏览小组、查看帖子和评论
+A: 通过 `CRAWLER_SLEEP` 环境变量或 `app.crawler-sleep` 配置项设置，单位为秒。
 
-### Q: Web 服务器和爬虫可以同时运行吗？
+### Q: 如何启用自动回复功能？
 
-A: 可以！Web 服务器只读取数据库，不会影响爬虫的运行。你可以：
-- 在一个终端运行爬虫：`go run cmd/main.go -g "xxx" -k "xxx"`
-- 在另一个终端运行 Web 服务器：`go run cmd/web.go`
-- 爬虫会持续更新数据库，Web 界面刷新即可看到最新数据
+A: 设置 `CRAWLER_BOT=true` 并配置 `LLM_API_KEY` 环境变量即可。
 
 ## 📝 开发计划
 
 - [ ] 支持更多大模型 API（Claude、本地模型等）
 - [ ] 实现实际的豆瓣回复发送功能
-- [ ] 添加 Web 界面
-- [ ] 支持更多数据导出格式
-- [ ] 添加定时任务功能
+- [ ] 添加数据导出功能
+- [ ] 支持更多数据可视化
+- [ ] 添加用户认证功能
 
 ## 📄 许可证
 

@@ -1,0 +1,79 @@
+services:
+  # Web管理界面服务
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+    container_name: douban-bot-web
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data
+      - ./web:/app/web
+    env_file:
+      - .env
+    environment:
+      - DOUBAN_COOKIE=${DOUBAN_COOKIE:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_API_BASE=${LLM_API_BASE:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-3.5-turbo}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-500}
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/data/db.sqlite3
+      - APP_DB_PATH=/app/data/db.sqlite3
+    restart: unless-stopped
+    networks:
+      - douban-bot-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # 爬虫服务
+  crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+    container_name: douban-bot-crawler
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - DOUBAN_COOKIE=${DOUBAN_COOKIE:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_API_BASE=${LLM_API_BASE:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-3.5-turbo}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-500}
+      - CRAWLER_GROUPS=${CRAWLER_GROUPS:-}
+      - CRAWLER_KEYWORDS=${CRAWLER_KEYWORDS:-}
+      - CRAWLER_EXCLUDE=${CRAWLER_EXCLUDE:-}
+      - CRAWLER_PAGES=${CRAWLER_PAGES:-10}
+      - CRAWLER_SLEEP=${CRAWLER_SLEEP:-900}
+      - CRAWLER_BOT=${CRAWLER_BOT:-false}
+      - CRAWLER_REPLY_KEYWORDS=${CRAWLER_REPLY_KEYWORDS:-}
+      - CRAWLER_MIN_REPLY_DELAY=${CRAWLER_MIN_REPLY_DELAY:-30}
+      - CRAWLER_MAX_REPLY_DELAY=${CRAWLER_MAX_REPLY_DELAY:-300}
+      - CRAWLER_MAX_HISTORY_POSTS=${CRAWLER_MAX_HISTORY_POSTS:-50}
+      - CRAWLER_MAX_HISTORY_COMMENTS=${CRAWLER_MAX_HISTORY_COMMENTS:-200}
+      - CRAWLER_DEBUG=${CRAWLER_DEBUG:-false}
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/data/db.sqlite3
+      - APP_DB_PATH=/app/data/db.sqlite3
+      - APP_CRAWLER_BOT=${CRAWLER_BOT:-false}
+    restart: unless-stopped
+    networks:
+      - douban-bot-network
+    depends_on:
+      web:
+        condition: service_healthy
+
+networks:
+  douban-bot-network:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local

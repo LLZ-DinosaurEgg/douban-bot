@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豆瓣小组爬虫管理界面</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 豆瓣小组爬虫管理界面</h1>
+            <div class="stats" id="stats">
+                <div class="stat-item">
+                    <span class="stat-label">小组</span>
+                    <span class="stat-value" id="groups-count">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">帖子</span>
+                    <span class="stat-value" id="posts-count">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">评论</span>
+                    <span class="stat-value" id="comments-count">-</span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="sidebar">
+                <h2>小组列表</h2>
+                <div class="group-filter">
+                    <input type="text" id="group-search" placeholder="搜索小组...">
+                </div>
+                <ul class="group-list" id="group-list">
+                    <li class="loading">加载中...</li>
+                </ul>
+            </div>
+
+            <div class="content">
+                <div class="toolbar">
+                    <div class="filter-group">
+                        <label>
+                            <input type="checkbox" id="filter-matched"> 仅显示匹配的帖子
+                        </label>
+                    </div>
+                    <div class="pagination-info" id="pagination-info"></div>
+                </div>
+
+                <div class="posts-container" id="posts-container">
+                    <div class="loading">加载中...</div>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </main>
+
+        <!-- 帖子详情模态框 -->
+        <div class="modal" id="post-modal">
+            <div class="modal-content">
+                <span class="close" id="close-modal">&times;</span>
+                <div id="post-detail"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+# Git相关
+.git
+.gitignore
+.gitattributes
+
+# 数据文件
+*.sqlite3
+*.db
+data/
+
+# 构建产物
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Java 构建产物
+target/
+*.class
+*.jar
+!target/*.jar
+
+# Go 构建产物（已移除）
+# crawler
+# web
+
+# 文档
+*.md
+!README.md
+docs/
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# Docker相关
+Dockerfile
+Dockerfile.java
+docker-compose.yml
+.dockerignore
+
+# 其他
+*.log
+tmp/
+temp/
