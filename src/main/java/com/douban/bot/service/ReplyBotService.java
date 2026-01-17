@@ -1,6 +1,7 @@
 package com.douban.bot.service;
 
 import com.douban.bot.config.AppConfig;
+import com.douban.bot.db.BotConfigDao;
 import com.douban.bot.db.RepositoryService;
 import com.douban.bot.model.Comment;
 import com.douban.bot.model.Group;
@@ -8,6 +9,7 @@ import com.douban.bot.model.Post;
 import com.douban.bot.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jdbi.v3.core.Jdbi;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class ReplyBotService {
     private final RepositoryService repository;
     private final LlmClient llmClient;
     private final AppConfig config;
+    private final Jdbi jdbi;
 
     @Async
     public void processNewPosts(String groupId) {
@@ -38,7 +41,7 @@ public class ReplyBotService {
                 return;
             }
 
-            // 学习小组风格（简化版）
+            // 构建系统提示词（支持自定义 prompt 和学习风格开关）
             String systemPrompt = buildSystemPrompt(group);
 
             // 获取最近匹配的帖子
@@ -78,18 +81,39 @@ public class ReplyBotService {
     }
 
     private String buildSystemPrompt(Group group) {
-        // 获取历史评论学习风格（简化版）
-        List<Comment> comments = repository.getCommentsByGroupId(group.getGroupId(), 
-                config.getCrawlerMaxHistoryComments() != null ? config.getCrawlerMaxHistoryComments() : 200);
+        // 读取机器人配置
+        BotConfigDao.BotConfigRow botConfig = jdbi.withExtension(BotConfigDao.class, BotConfigDao::findById);
+        boolean enableStyleLearning = botConfig != null && botConfig.enableStyleLearning() != null ? botConfig.enableStyleLearning() : true;
+        String customPrompt = botConfig != null && botConfig.customPrompt() != null ? botConfig.customPrompt() : "";
         
-        String style = comments.stream()
-                .limit(10)
-                .map(Comment::getContent)
-                .filter(c -> c != null && c.length() > 5)
-                .collect(Collectors.joining("\n"));
+        // 如果配置了自定义 prompt，优先使用自定义 prompt
+        if (customPrompt != null && !customPrompt.trim().isEmpty()) {
+            log.debug("使用自定义 prompt 生成回复: groupId={}, promptLength={}", group.getGroupId(), customPrompt.length());
+            return customPrompt.trim();
+        }
+        
+        // 如果启用学习风格，则学习小组风格
+        if (enableStyleLearning) {
+            int maxComments = botConfig != null && botConfig.maxHistoryComments() != null 
+                    ? botConfig.maxHistoryComments() 
+                    : (config.getCrawlerMaxHistoryComments() != null ? config.getCrawlerMaxHistoryComments() : 200);
+            List<Comment> comments = repository.getCommentsByGroupId(group.getGroupId(), maxComments);
+            
+            String style = comments.stream()
+                    .limit(10)
+                    .map(Comment::getContent)
+                    .filter(c -> c != null && c.length() > 5)
+                    .collect(Collectors.joining("\n"));
 
-        return String.format("你是一个豆瓣小组%s的成员。请根据以下示例评论的风格，生成一个自然、友好的回复。\n示例评论风格：\n%s\n请保持相似的语气和风格。", 
-                group.getName(), style.isEmpty() ? "友好、自然" : style);
+            log.debug("使用学习风格生成回复: groupId={}, groupName={}, commentsCount={}", 
+                    group.getGroupId(), group.getName(), comments.size());
+            return String.format("你是一个豆瓣小组%s的成员。请根据以下示例评论的风格，生成一个自然、友好的回复。\n示例评论风格：\n%s\n请保持相似的语气和风格。", 
+                    group.getName(), style.isEmpty() ? "友好、自然" : style);
+        } else {
+            // 未启用学习风格，使用默认提示词
+            log.debug("学习风格已禁用，使用默认提示词: groupId={}", group.getGroupId());
+            return "你是一个豆瓣小组的成员，请生成一个自然、友好的回复。";
+        }
     }
 
     private boolean shouldReply(Post post) {

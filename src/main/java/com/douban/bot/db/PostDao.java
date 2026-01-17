@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
@@ -55,9 +54,18 @@ public interface PostDao {
             "is_matched, keyword_list, created, updated) " +
             "VALUES (:postId, :groupId, :authorInfo, :alt, :title, :content, :photoList, " +
             ":isMatched, :keywordList, :created, :updated)")
-    @GetGeneratedKeys("id")
     @Transaction
-    long insert(PostRow row);
+    void insert(@Bind("postId") String postId,
+                @Bind("groupId") String groupId,
+                @Bind("authorInfo") String authorInfo,
+                @Bind("alt") String alt,
+                @Bind("title") String title,
+                @Bind("content") String content,
+                @Bind("photoList") String photoList,
+                @Bind("isMatched") boolean isMatched,
+                @Bind("keywordList") String keywordList,
+                @Bind("created") String created,
+                @Bind("updated") String updated);
 
     @SqlUpdate("UPDATE \"Post\" SET title = :title, updated = :updated WHERE post_id = :postId")
     @Transaction
@@ -73,7 +81,9 @@ public interface PostDao {
 
     default void createPost(Post post) {
         PostRow row = toPostRow(post);
-        insert(row);
+        insert(row.postId(), row.groupId(), row.authorInfo(), row.alt(), row.title(),
+                row.content(), row.photoList(), row.isMatched(), row.keywordList(),
+                row.created(), row.updated());
     }
 
     default void updatePost(Post post) {

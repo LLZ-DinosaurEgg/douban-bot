@@ -1,0 +1,137 @@
+{
+  "groups": [
+    {
+      "name": "app",
+      "type": "com.douban.bot.config.AppConfig",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.cookie",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-bot",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-debug",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-exclude",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-groups",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-keywords",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-max-history-comments",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-max-history-posts",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-max-reply-delay",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-min-reply-delay",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-pages",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-reply-keywords",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.crawler-sleep",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.date-format",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.datetime-format",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.db-path",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.douban-base-host",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.llm-api-base",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.llm-api-key",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.llm-api-type",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.llm-max-tokens",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.llm-model",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.llm-temperature",
+      "type": "java.lang.Double",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.user-agent",
+      "type": "java.lang.String",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    },
+    {
+      "name": "app.web-port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.douban.bot.config.AppConfig"
+    }
+  ],
+  "hints": []
+}

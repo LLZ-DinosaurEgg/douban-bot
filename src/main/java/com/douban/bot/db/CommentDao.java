@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
-import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
@@ -42,9 +41,15 @@ public interface CommentDao {
 
     @SqlUpdate("INSERT INTO \"Comment\" (comment_id, post_id, group_id, author_info, content, reply_to_id, like_count, created) " +
             "VALUES (:commentId, :postId, :groupId, :authorInfo, :content, :replyToId, :likeCount, :created)")
-    @GetGeneratedKeys("id")
     @Transaction
-    long insert(CommentRow row);
+    void insert(@Bind("commentId") String commentId,
+                @Bind("postId") String postId,
+                @Bind("groupId") String groupId,
+                @Bind("authorInfo") String authorInfo,
+                @Bind("content") String content,
+                @Bind("replyToId") String replyToId,
+                @Bind("likeCount") int likeCount,
+                @Bind("created") String created);
 
     default Comment getCommentByCommentId(String commentId) {
         return findByCommentId(commentId).map(this::toComment).orElse(null);
@@ -62,7 +67,8 @@ public interface CommentDao {
 
     default void createComment(Comment comment) {
         CommentRow row = toCommentRow(comment);
-        insert(row);
+        insert(row.commentId(), row.postId(), row.groupId(), row.authorInfo(),
+                row.content(), row.replyToId(), row.likeCount(), row.created());
     }
 
     private CommentRow toCommentRow(Comment comment) {

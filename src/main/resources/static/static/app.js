@@ -10,8 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadGroups();
     setupEventListeners();
     setupConfigTabListeners();
-    // 初始化错误日志显示
-    updateErrorLogDisplay();
+    setupBotTabListeners();
 });
 
 // 设置事件监听
@@ -42,9 +41,9 @@ async function loadStats() {
         const response = await fetch('/api/stats');
         const result = await response.json();
         if (result.success) {
-            document.getElementById('groups-count').textContent = result.data.groups_count || 0;
-            document.getElementById('posts-count').textContent = result.data.posts_count || 0;
-            document.getElementById('comments-count').textContent = result.data.comments_count || 0;
+            document.getElementById('groups-count').textContent = result.data.groups || 0;
+            document.getElementById('posts-count').textContent = result.data.posts || 0;
+            document.getElementById('comments-count').textContent = result.data.comments || 0;
         }
     } catch (error) {
         console.error('加载统计信息失败:', error);
@@ -70,17 +69,17 @@ async function loadGroups() {
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <div class="group-name">${escapeHtml(group.name)}</div>
-                    <div class="group-meta">成员: ${group.member_count || 0}</div>
+                    <div class="group-meta">成员: ${group.memberCount || 0}</div>
                 `;
                 li.addEventListener('click', () => {
-                    selectGroup(group.id, group.name);
+                    selectGroup(group.groupId, group.name);
                 });
                 groupList.appendChild(li);
             });
 
             // 默认选择第一个小组
             if (result.data.length > 0) {
-                selectGroup(result.data[0].id, result.data[0].name);
+                selectGroup(result.data[0].groupId, result.data[0].name);
             }
         }
     } catch (error) {
@@ -133,7 +132,7 @@ async function loadPosts() {
             
             // 过滤匹配的帖子
             if (filterMatched) {
-                posts = posts.filter(post => post.is_matched);
+                posts = posts.filter(post => post.isMatched);
             }
 
             if (posts.length === 0) {
@@ -160,12 +159,12 @@ async function loadPosts() {
 // 创建帖子卡片
 function createPostCard(post) {
     const card = document.createElement('div');
-    card.className = `post-card ${post.is_matched ? 'matched' : ''}`;
+    card.className = `post-card ${post.isMatched ? 'matched' : ''}`;
     
-    const authorName = post.author_info?.name || '未知';
+    const authorName = post.authorInfo?.name || '未知';
     const created = formatDate(post.created);
     const content = post.content || '';
-    const keywords = post.keyword_list || [];
+    const keywords = post.keywordList || [];
 
     card.innerHTML = `
         <div class="post-header">
@@ -174,7 +173,7 @@ function createPostCard(post) {
         <div class="post-meta">
             <span>作者: ${escapeHtml(authorName)}</span>
             <span>时间: ${created}</span>
-            ${post.is_matched ? '<span style="color: #28a745;">✓ 已匹配</span>' : ''}
+            ${post.isMatched ? '<span style="color: #28a745;">✓ 已匹配</span>' : ''}
         </div>
         ${content ? `<div class="post-content">${escapeHtml(content.substring(0, 200))}${content.length > 200 ? '...' : ''}</div>` : ''}
         ${keywords.length > 0 ? `
@@ -185,7 +184,7 @@ function createPostCard(post) {
     `;
 
     card.addEventListener('click', () => {
-        showPostDetail(post.post_id);
+        showPostDetail(post.postId);
     });
 
     return card;
@@ -211,10 +210,10 @@ async function showPostDetail(postId) {
             const post = postResult.data;
             const comments = commentsResult.success ? commentsResult.data : [];
 
-            const authorName = post.author_info?.name || '未知';
+            const authorName = post.authorInfo?.name || '未知';
             const created = formatDate(post.created);
             const updated = formatDate(post.updated);
-            const keywords = post.keyword_list || [];
+            const keywords = post.keywordList || [];
 
             detail.innerHTML = `
                 <div class="post-detail-title">${escapeHtml(post.title)}</div>
@@ -222,7 +221,7 @@ async function showPostDetail(postId) {
                     <span>作者: ${escapeHtml(authorName)}</span>
                     <span>创建时间: ${created}</span>
                     <span>更新时间: ${updated}</span>
-                    ${post.is_matched ? '<span style="color: #28a745;">✓ 已匹配</span>' : ''}
+                    ${post.isMatched ? '<span style="color: #28a745;">✓ 已匹配</span>' : ''}
                 </div>
                 ${keywords.length > 0 ? `
                     <div class="post-keywords" style="margin-bottom: 20px;">
@@ -236,11 +235,11 @@ async function showPostDetail(postId) {
                         <h3>评论 (${comments.length})</h3>
                         ${comments.map(comment => `
                             <div class="comment-item">
-                                <div class="comment-author">${escapeHtml(comment.author_info?.name || '匿名')}</div>
+                                <div class="comment-author">${escapeHtml(comment.authorInfo?.name || '匿名')}</div>
                                 <div class="comment-content">${escapeHtml(comment.content)}</div>
                                 <div class="comment-meta">
                                     时间: ${formatDate(comment.created)} | 
-                                    点赞: ${comment.like_count || 0}
+                                    点赞: ${comment.likeCount || 0}
                                 </div>
                             </div>
                         `).join('')}
@@ -341,6 +340,8 @@ function setupConfigTabListeners() {
             
             if (tab === 'config') {
                 loadConfigs();
+            } else if (tab === 'bot') {
+                loadBotConfig();
             }
         });
     });
@@ -359,16 +360,6 @@ function setupConfigTabListeners() {
     // 关闭配置模态框
     document.getElementById('close-config-modal').addEventListener('click', () => {
         closeConfigModal();
-    });
-
-    // 错误日志按钮事件
-    document.getElementById('clear-error-log')?.addEventListener('click', clearErrorLog);
-    document.getElementById('copy-error-log')?.addEventListener('click', copyErrorLog);
-    document.getElementById('toggle-error-log')?.addEventListener('click', () => {
-        const container = document.getElementById('error-log-container');
-        container.classList.toggle('collapsed');
-        const btn = document.getElementById('toggle-error-log');
-        btn.textContent = container.classList.contains('collapsed') ? '展开' : '收起';
     });
 
     document.getElementById('cancel-config-btn').addEventListener('click', () => {
@@ -404,12 +395,10 @@ async function loadConfigs() {
             });
         } else {
             const errorMsg = result.error || '未知错误';
-            addErrorLog(`加载配置列表失败: ${errorMsg}`, { response: result });
             container.innerHTML = '<div class="error">加载配置失败: ' + errorMsg + '</div>';
         }
     } catch (error) {
         console.error('加载配置失败:', error);
-        addErrorLog(`加载配置列表异常: ${error.message}`, { error: error.message, stack: error.stack });
         container.innerHTML = '<div class="error">加载失败: ' + error.message + '</div>';
     }
 }
@@ -506,76 +495,6 @@ function closeConfigModal() {
     document.getElementById('config-modal').classList.remove('show');
 }
 
-// 错误日志管理
-let errorLogs = [];
-
-function addErrorLog(message, details = null) {
-    const timestamp = new Date().toLocaleString('zh-CN');
-    const errorEntry = {
-        timestamp,
-        message,
-        details: details ? JSON.stringify(details, null, 2) : null,
-        fullError: details
-    };
-    errorLogs.push(errorEntry);
-    updateErrorLogDisplay();
-    
-    // 自动展开错误日志区域
-    const container = document.getElementById('error-log-container');
-    container.classList.add('expanded');
-    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function updateErrorLogDisplay() {
-    const content = document.getElementById('error-log-content');
-    if (errorLogs.length === 0) {
-        content.innerHTML = '<div class="error-log-empty">暂无错误日志</div>';
-        return;
-    }
-    
-    content.innerHTML = errorLogs.slice().reverse().map((log, index) => {
-        return `
-            <div class="error-log-entry">
-                <div class="error-log-time">[${log.timestamp}]</div>
-                <div class="error-log-message">${escapeHtml(log.message)}</div>
-                ${log.details ? `
-                    <details class="error-log-details">
-                        <summary>查看详细信息</summary>
-                        <pre class="error-log-details-content">${escapeHtml(log.details)}</pre>
-                    </details>
-                ` : ''}
-            </div>
-        `;
-    }).join('');
-}
-
-function clearErrorLog() {
-    errorLogs = [];
-    updateErrorLogDisplay();
-}
-
-function copyErrorLog() {
-    if (errorLogs.length === 0) {
-        alert('没有错误日志可复制');
-        return;
-    }
-    
-    const logText = errorLogs.map(log => {
-        let text = `[${log.timestamp}] ${log.message}`;
-        if (log.details) {
-            text += `\n详细信息:\n${log.details}`;
-        }
-        return text;
-    }).join('\n\n');
-    
-    navigator.clipboard.writeText(logText).then(() => {
-        alert('错误日志已复制到剪贴板');
-    }).catch(err => {
-        console.error('复制失败:', err);
-        alert('复制失败，请手动复制');
-    });
-}
-
 // 保存配置
 async function saveConfig() {
     const form = document.getElementById('config-form');
@@ -614,22 +533,10 @@ async function saveConfig() {
             alert('配置保存成功！');
         } else {
             const errorMsg = result.error || '未知错误';
-            addErrorLog(`保存配置失败: ${errorMsg}`, {
-                request: config,
-                response: result,
-                status: response.status
-            });
             alert('保存失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('保存配置失败:', error);
-        const errorDetails = {
-            message: error.message,
-            stack: error.stack,
-            config: config,
-            url: configId ? `/api/config/crawler/${configId}` : '/api/config/crawler'
-        };
-        addErrorLog(`保存配置异常: ${error.message}`, errorDetails);
         alert('保存失败: ' + error.message);
     }
 }
@@ -644,12 +551,10 @@ async function editConfig(id) {
             openConfigModal(result.data);
         } else {
             const errorMsg = result.error || '未知错误';
-            addErrorLog(`加载配置失败: ${errorMsg}`, { id, response: result });
             alert('加载配置失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('加载配置失败:', error);
-        addErrorLog(`加载配置异常: ${error.message}`, { id, error: error.message, stack: error.stack });
         alert('加载失败: ' + error.message);
     }
 }
@@ -672,12 +577,10 @@ async function deleteConfig(id) {
             alert('配置已删除');
         } else {
             const errorMsg = result.error || '未知错误';
-            addErrorLog(`删除配置失败: ${errorMsg}`, { id, response: result });
             alert('删除失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('删除配置失败:', error);
-        addErrorLog(`删除配置异常: ${error.message}`, { id, error: error.message, stack: error.stack });
         alert('删除失败: ' + error.message);
     }
 }
@@ -703,12 +606,374 @@ async function runCrawler(id) {
             }, 3000);
         } else {
             const errorMsg = result.error || '未知错误';
-            addErrorLog(`启动爬虫失败: ${errorMsg}`, { id, response: result });
             alert('启动失败: ' + errorMsg);
         }
     } catch (error) {
         console.error('启动爬虫失败:', error);
-        addErrorLog(`启动爬虫异常: ${error.message}`, { id, error: error.message, stack: error.stack });
         alert('启动失败: ' + error.message);
     }
+}
+
+// ============== 机器人管理功能 ==============
+
+// 设置机器人标签页监听器
+function setupBotTabListeners() {
+    // 测试生成回复按钮
+    document.getElementById('test-generate-btn')?.addEventListener('click', testGenerateReply);
+    
+    // 复制回复按钮
+    document.getElementById('copy-reply-btn')?.addEventListener('click', copyTestReply);
+    
+    // 编辑大模型配置按钮
+    document.getElementById('edit-llm-config-btn')?.addEventListener('click', openLlmConfigForm);
+    
+    // 取消编辑大模型配置按钮
+    document.getElementById('cancel-llm-config-btn')?.addEventListener('click', closeLlmConfigForm);
+    
+    // 保存大模型配置表单
+    document.getElementById('llm-config-edit-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveLlmConfig();
+    });
+    
+    // 编辑机器人配置按钮
+    document.getElementById('edit-bot-config-btn')?.addEventListener('click', openBotConfigForm);
+    
+    // 取消编辑机器人配置按钮
+    document.getElementById('cancel-bot-config-btn')?.addEventListener('click', closeBotConfigForm);
+    
+    // 保存机器人配置表单
+    document.getElementById('bot-config-edit-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveBotConfig();
+    });
+}
+
+// 打开大模型配置表单
+function openLlmConfigForm() {
+    const formDiv = document.getElementById('llm-config-form');
+    if (formDiv) {
+        formDiv.style.display = 'block';
+        // 加载配置到表单
+        loadLlmConfigToForm();
+    }
+}
+
+// 关闭大模型配置表单
+function closeLlmConfigForm() {
+    const formDiv = document.getElementById('llm-config-form');
+    if (formDiv) {
+        formDiv.style.display = 'none';
+    }
+}
+
+// 打开机器人配置表单
+function openBotConfigForm() {
+    const displayDiv = document.getElementById('bot-config-display');
+    const formDiv = document.getElementById('bot-config-form');
+    if (displayDiv && formDiv) {
+        displayDiv.style.display = 'none';
+        formDiv.style.display = 'block';
+        // 加载配置到表单
+        loadBotConfigToForm();
+    }
+}
+
+// 关闭机器人配置表单
+function closeBotConfigForm() {
+    const displayDiv = document.getElementById('bot-config-display');
+    const formDiv = document.getElementById('bot-config-form');
+    if (displayDiv && formDiv) {
+        displayDiv.style.display = 'block';
+        formDiv.style.display = 'none';
+    }
+}
+
+// 加载机器人配置
+async function loadBotConfig() {
+    try {
+        const response = await fetch('/api/bot/config');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const config = result.data;
+            
+            // 更新状态显示
+            document.getElementById('bot-enabled-status').textContent = config.enabled ? '✅ 已启用' : '❌ 已禁用';
+            document.getElementById('bot-enabled-status').style.color = config.enabled ? '#28a745' : '#dc3545';
+            
+            document.getElementById('bot-api-status').textContent = config.hasApiKey ? '✅ 已配置' : '❌ 未配置';
+            document.getElementById('bot-api-status').style.color = config.hasApiKey ? '#28a745' : '#dc3545';
+            
+            document.getElementById('bot-model').textContent = config.model || '-';
+            document.getElementById('bot-temperature').textContent = config.temperature != null ? config.temperature.toString() : '-';
+            
+            // 更新配置信息显示
+            const replyKeywords = config.replyKeywords && config.replyKeywords.length > 0 
+                ? config.replyKeywords.join(', ') 
+                : '未配置（将回复所有匹配的帖子）';
+            document.getElementById('bot-reply-keywords').textContent = replyKeywords;
+            
+            const delay = config.minReplyDelay && config.maxReplyDelay
+                ? `${config.minReplyDelay}-${config.maxReplyDelay} 秒`
+                : '-';
+            document.getElementById('bot-reply-delay').textContent = delay;
+            
+            document.getElementById('bot-history-posts').textContent = config.maxHistoryPosts || '-';
+            document.getElementById('bot-history-comments').textContent = config.maxHistoryComments || '-';
+            
+            // 显示学习风格配置
+            const enableStyleLearning = config.enableStyleLearning !== undefined ? config.enableStyleLearning : true;
+            document.getElementById('bot-enable-style-learning').textContent = enableStyleLearning ? '✅ 已开启' : '❌ 已关闭';
+            document.getElementById('bot-enable-style-learning').style.color = enableStyleLearning ? '#28a745' : '#dc3545';
+            
+            // 显示自定义 Prompt
+            const customPrompt = config.customPrompt || '';
+            if (customPrompt && customPrompt.trim().length > 0) {
+                document.getElementById('bot-custom-prompt-display').textContent = customPrompt;
+            } else {
+                document.getElementById('bot-custom-prompt-display').textContent = '未配置（将使用默认 prompt 或学习风格）';
+            }
+        }
+    } catch (error) {
+        console.error('加载机器人配置失败:', error);
+    }
+}
+
+// 加载大模型配置到表单
+async function loadLlmConfigToForm() {
+    try {
+        const response = await fetch('/api/bot/config');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const config = result.data;
+            
+            // 填充大模型配置字段
+            document.getElementById('llm-api-type').value = config.apiType || 'openai';
+            document.getElementById('llm-api-base').value = config.apiBase || '';
+            // API Key 不显示，如果已有配置则显示占位符
+            if (config.hasApiKey) {
+                document.getElementById('llm-api-key').placeholder = '****（已有配置，留空则不修改）';
+            } else {
+                document.getElementById('llm-api-key').placeholder = 'sk-...';
+            }
+            document.getElementById('llm-api-key').value = '';
+            document.getElementById('llm-model-input').value = config.model || '';
+            document.getElementById('llm-temperature-input').value = config.temperature || 0.7;
+            document.getElementById('llm-max-tokens').value = config.maxTokens || 500;
+        }
+    } catch (error) {
+        console.error('加载大模型配置到表单失败:', error);
+    }
+}
+
+// 加载机器人配置到表单
+async function loadBotConfigToForm() {
+    try {
+        const response = await fetch('/api/bot/config');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const config = result.data;
+            
+            // 填充机器人配置字段
+            document.getElementById('bot-enabled').checked = config.enabled || false;
+            document.getElementById('bot-reply-keywords-input').value = config.replyKeywords ? config.replyKeywords.join(', ') : '';
+            document.getElementById('bot-min-reply-delay').value = config.minReplyDelay || 30;
+            document.getElementById('bot-max-reply-delay').value = config.maxReplyDelay || 300;
+            document.getElementById('bot-history-posts-input').value = config.maxHistoryPosts || 50;
+            document.getElementById('bot-history-comments-input').value = config.maxHistoryComments || 200;
+            
+            // 填充学习风格和自定义 Prompt
+            const enableStyleLearning = config.enableStyleLearning !== undefined ? config.enableStyleLearning : true;
+            document.getElementById('bot-enable-style-learning-input').checked = enableStyleLearning;
+            document.getElementById('bot-custom-prompt-input').value = config.customPrompt || '';
+        }
+    } catch (error) {
+        console.error('加载机器人配置到表单失败:', error);
+    }
+}
+
+// 保存大模型配置
+async function saveLlmConfig() {
+    const form = document.getElementById('llm-config-edit-form');
+    if (!form) return;
+    
+    const apiKeyInput = document.getElementById('llm-api-key');
+    const apiKey = apiKeyInput.value.trim();
+    
+    // 构建配置对象
+    const config = {
+        apiType: document.getElementById('llm-api-type').value,
+        apiBase: document.getElementById('llm-api-base').value.trim(),
+        model: document.getElementById('llm-model-input').value.trim(),
+        temperature: parseFloat(document.getElementById('llm-temperature-input').value) || 0.7,
+        maxTokens: parseInt(document.getElementById('llm-max-tokens').value) || 500
+    };
+    
+    // 只有当用户输入了新的 API Key 时才添加到请求中
+    // 如果为空，则不发送 apiKey 字段，后端会保留原有的 API Key
+    if (apiKey && apiKey.length > 0) {
+        config.apiKey = apiKey;
+    }
+    
+    try {
+        const response = await fetch('/api/bot/config', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('大模型配置保存成功！');
+            // 刷新配置显示
+            await loadBotConfig();
+            // 关闭表单
+            closeLlmConfigForm();
+        } else {
+            const errorMsg = result.error || '保存失败';
+            alert('保存配置失败: ' + errorMsg);
+        }
+    } catch (error) {
+        console.error('保存配置失败:', error);
+        alert('保存配置失败: ' + error.message);
+    }
+}
+
+// 保存机器人配置
+async function saveBotConfig() {
+    const form = document.getElementById('bot-config-edit-form');
+    if (!form) return;
+    
+    const config = {
+        enabled: document.getElementById('bot-enabled').checked,
+        replyKeywords: document.getElementById('bot-reply-keywords-input').value.trim(),
+        minReplyDelay: parseInt(document.getElementById('bot-min-reply-delay').value) || 30,
+        maxReplyDelay: parseInt(document.getElementById('bot-max-reply-delay').value) || 300,
+        maxHistoryPosts: parseInt(document.getElementById('bot-history-posts-input').value) || 50,
+        maxHistoryComments: parseInt(document.getElementById('bot-history-comments-input').value) || 200,
+        enableStyleLearning: document.getElementById('bot-enable-style-learning-input').checked,
+        customPrompt: document.getElementById('bot-custom-prompt-input').value.trim()
+    };
+    
+    try {
+        const response = await fetch('/api/bot/config', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('机器人配置保存成功！');
+            // 刷新配置显示
+            await loadBotConfig();
+            // 切换回显示模式
+            const displayDiv = document.getElementById('bot-config-display');
+            const formDiv = document.getElementById('bot-config-form');
+            if (displayDiv && formDiv) {
+                displayDiv.style.display = 'block';
+                formDiv.style.display = 'none';
+            }
+        } else {
+            const errorMsg = result.error || '保存失败';
+            alert('保存配置失败: ' + errorMsg);
+        }
+    } catch (error) {
+        console.error('保存配置失败:', error);
+        alert('保存配置失败: ' + error.message);
+    }
+}
+
+// 测试生成回复
+async function testGenerateReply() {
+    const title = document.getElementById('test-post-title').value.trim();
+    const content = document.getElementById('test-post-content').value.trim();
+    const groupId = document.getElementById('test-group-id').value.trim();
+    const generateBtn = document.getElementById('test-generate-btn');
+    const resultDiv = document.getElementById('test-result');
+    const replyContent = document.getElementById('test-reply-content');
+    
+    if (!title || !content) {
+        alert('请填写帖子标题和内容');
+        return;
+    }
+    
+    generateBtn.disabled = true;
+    generateBtn.textContent = '生成中...';
+    resultDiv.style.display = 'none';
+    
+    const requestData = {
+        title: title,
+        content: content,
+        groupId: groupId || null
+    };
+    
+    try {
+        console.log('[测试回复生成] 开始生成回复', { title, contentLength: content.length, groupId });
+        
+        const response = await fetch('/api/bot/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const result = await response.json();
+        console.log('[测试回复生成] 服务器响应', { status: response.status, success: result.success, hasData: !!result.data });
+        
+        if (result.success && result.data) {
+            const reply = result.data.reply || '未收到回复';
+            replyContent.textContent = reply;
+            resultDiv.style.display = 'block';
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            console.log('[测试回复生成] 生成成功', { replyLength: reply.length });
+        } else {
+            const errorMsg = result.error || '生成回复失败';
+            console.error('[测试回复生成] 生成失败', {
+                request: requestData,
+                response: result,
+                status: response.status
+            });
+            alert('生成回复失败: ' + errorMsg);
+        }
+    } catch (error) {
+        console.error('[测试回复生成] 请求异常', {
+            request: requestData,
+            error: {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            }
+        });
+        alert('生成回复失败: ' + error.message);
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '✨ 生成回复';
+    }
+}
+
+// 复制测试回复
+function copyTestReply() {
+    const replyContent = document.getElementById('test-reply-content').textContent;
+    if (!replyContent) {
+        alert('没有可复制的内容');
+        return;
+    }
+    
+    navigator.clipboard.writeText(replyContent).then(() => {
+        alert('回复已复制到剪贴板');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制');
+    });
 }

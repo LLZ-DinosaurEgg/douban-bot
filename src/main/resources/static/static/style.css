@@ -165,6 +165,15 @@ main {
     min-height: 600px;
 }
 
+.tab-content {
+    display: none;
+    width: 100%;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
 .sidebar {
     width: 300px;
     background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
@@ -931,4 +940,232 @@ main {
     color: #333;
     max-height: 200px;
     overflow-y: auto;
+}
+
+/* 机器人管理样式 */
+.bot-container {
+    width: 100%;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.bot-header {
+    margin-bottom: 30px;
+}
+
+.bot-header h2 {
+    color: #333;
+}
+
+.bot-content {
+    display: grid;
+    gap: 20px;
+}
+
+.bot-status-card,
+.bot-config-card,
+.bot-test-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    border: 2px solid #d4edda;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(17, 153, 142, 0.1);
+}
+
+.bot-status-card h3,
+.bot-config-card h3,
+.bot-test-card h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 1.2em;
+}
+
+.bot-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.bot-status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bot-status-label {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: 500;
+}
+
+.bot-status-value {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #333;
+}
+
+.bot-config-info {
+    display: grid;
+    gap: 15px;
+}
+
+.bot-config-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bot-config-row label {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: 500;
+}
+
+.bot-config-value {
+    font-size: 1em;
+    color: #333;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+.bot-config-note {
+    margin-top: 15px;
+    padding: 10px;
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    border-radius: 4px;
+}
+
+.bot-config-note small {
+    color: #856404;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+.bot-test-form {
+    display: grid;
+    gap: 15px;
+}
+
+.bot-test-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bot-test-form label {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: 500;
+}
+
+.bot-test-form input[type="text"],
+.bot-test-form textarea {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+.bot-test-form input[type="text"]:focus,
+.bot-test-form textarea:focus {
+    outline: none;
+    border-color: #11998e;
+    box-shadow: 0 0 0 3px rgba(17, 153, 142, 0.1);
+}
+
+.bot-test-form textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.bot-test-result {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #11998e;
+}
+
+.bot-test-result h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.bot-test-reply {
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.6;
+    color: #333;
+    min-height: 50px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.85em;
+}
+
+/* 机器人配置表单样式 */
+.bot-config-form {
+    margin-top: 20px;
+}
+
+.bot-config-form .form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.bot-config-form .form-section:last-of-type {
+    border-bottom: none;
+}
+
+.bot-config-form .form-section h4 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.bot-config-form select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.bot-config-form select:focus {
+    outline: none;
+    border-color: #11998e;
+    box-shadow: 0 0 0 3px rgba(17, 153, 142, 0.1);
+}
+
+.bot-config-form input[type="password"] {
+    font-family: monospace;
+}
+
+.bot-config-form .form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
 }

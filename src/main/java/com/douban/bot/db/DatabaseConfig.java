@@ -127,6 +127,46 @@ public class DatabaseConfig {
             """;
         stmt.execute(configTableSQL);
 
+        // BotConfig表 - 存储机器人配置
+        String botConfigTableSQL = """
+            CREATE TABLE IF NOT EXISTS "BotConfig" (
+                "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                "enabled" INTEGER NOT NULL DEFAULT 0,
+                "llm_api_type" TEXT NOT NULL DEFAULT 'openai',
+                "llm_api_base" TEXT NOT NULL DEFAULT 'https://api.openai.com/v1',
+                "llm_api_key" TEXT NOT NULL DEFAULT '',
+                "llm_model" TEXT NOT NULL DEFAULT 'gpt-3.5-turbo',
+                "llm_temperature" REAL NOT NULL DEFAULT 0.7,
+                "llm_max_tokens" INTEGER NOT NULL DEFAULT 500,
+                "reply_keywords" TEXT NOT NULL DEFAULT '[]',
+                "min_reply_delay" INTEGER NOT NULL DEFAULT 30,
+                "max_reply_delay" INTEGER NOT NULL DEFAULT 300,
+                "max_history_posts" INTEGER NOT NULL DEFAULT 50,
+                "max_history_comments" INTEGER NOT NULL DEFAULT 200,
+                "updated_at" TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """;
+        stmt.execute(botConfigTableSQL);
+
+        // 初始化默认配置（如果不存在）
+        stmt.execute("""
+            INSERT OR IGNORE INTO "BotConfig" (id, enabled) 
+            SELECT 1, 0 
+            WHERE NOT EXISTS (SELECT 1 FROM "BotConfig" WHERE id = 1)
+            """);
+        
+        // 添加新字段（如果不存在）
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"enable_style_learning\" INTEGER NOT NULL DEFAULT 1");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            stmt.execute("ALTER TABLE \"BotConfig\" ADD COLUMN \"custom_prompt\" TEXT NOT NULL DEFAULT ''");
+        } catch (SQLException e) {
+            // 字段已存在，忽略错误
+        }
+
         // 创建索引
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_comment_post_id ON \"Comment\"(post_id);");
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_comment_group_id ON \"Comment\"(group_id);");

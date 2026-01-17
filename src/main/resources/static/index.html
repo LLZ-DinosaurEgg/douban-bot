@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🥚 恐龙蛋的豆瓣爬虫管理界面</title>
+    <title>恐龙蛋的豆瓣金枕榴莲机器人</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <header>
             <div class="header-brand">
-                <h1>🥚 恐龙蛋的豆瓣爬虫管理界面</h1>
-                <p class="header-subtitle">可爱又实用的数据采集工具 💕</p>
+                <h1>恐龙蛋的豆瓣金枕榴莲机器人</h1>
             </div>
             <nav class="tabs">
                 <button class="tab-btn active" data-tab="data">数据管理</button>
                 <button class="tab-btn" data-tab="config">爬虫配置</button>
+                <button class="tab-btn" data-tab="bot">🤖 机器人管理</button>
             </nav>
             <div class="stats" id="stats">
                 <div class="stat-item">
@@ -76,6 +76,200 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 机器人管理标签页 -->
+            <div id="bot-tab" class="tab-content">
+                <div class="bot-container">
+                    <div class="bot-header">
+                        <h2>🤖 机器人管理</h2>
+                    </div>
+                    <div class="bot-content">
+                        <!-- 状态卡片 -->
+                    <div class="bot-status-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3>⚙️ 配置状态</h3>
+                            <button class="btn btn-primary" id="edit-llm-config-btn">✏️ 编辑大模型配置</button>
+                        </div>
+                        <div class="bot-status-grid">
+                            <div class="bot-status-item">
+                                <span class="bot-status-label">机器人状态:</span>
+                                <span class="bot-status-value" id="bot-enabled-status">-</span>
+                            </div>
+                            <div class="bot-status-item">
+                                <span class="bot-status-label">LLM API:</span>
+                                <span class="bot-status-value" id="bot-api-status">-</span>
+                            </div>
+                            <div class="bot-status-item">
+                                <span class="bot-status-label">模型:</span>
+                                <span class="bot-status-value" id="bot-model">-</span>
+                            </div>
+                            <div class="bot-status-item">
+                                <span class="bot-status-label">温度:</span>
+                                <span class="bot-status-value" id="bot-temperature">-</span>
+                            </div>
+                        </div>
+                        <!-- 大模型配置表单 -->
+                        <div class="bot-config-form" id="llm-config-form" style="display: none; margin-top: 20px;">
+                            <form id="llm-config-edit-form">
+                                <div class="form-section">
+                                    <h4>🧠 大模型配置</h4>
+                                    <div class="form-group">
+                                        <label for="llm-api-type">API 类型</label>
+                                        <select id="llm-api-type">
+                                            <option value="openai">OpenAI</option>
+                                            <option value="anthropic">Anthropic</option>
+                                            <option value="custom">自定义</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="llm-api-base">API Base URL</label>
+                                        <input type="url" id="llm-api-base" placeholder="https://api.openai.com/v1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="llm-api-key">API Key *</label>
+                                        <input type="password" id="llm-api-key" placeholder="sk-..." required>
+                                        <small>敏感信息，请妥善保管</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="llm-model">模型名称</label>
+                                        <input type="text" id="llm-model-input" placeholder="gpt-3.5-turbo">
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="llm-temperature-input">温度 (Temperature)</label>
+                                            <input type="number" id="llm-temperature-input" min="0" max="2" step="0.1" value="0.7">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="llm-max-tokens">最大 Token 数</label>
+                                            <input type="number" id="llm-max-tokens" min="1" value="500">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">💾 保存配置</button>
+                                    <button type="button" class="btn btn-secondary" id="cancel-llm-config-btn">取消</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                        <!-- 配置信息 -->
+                        <div class="bot-config-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3>🤖 机器人配置</h3>
+                                <button class="btn btn-secondary btn-sm" id="edit-bot-config-btn">✏️ 编辑配置</button>
+                            </div>
+                            <div class="bot-config-info" id="bot-config-display">
+                                <div class="bot-config-row">
+                                    <label>回复关键词:</label>
+                                    <div id="bot-reply-keywords" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
+                                    <label>回复延迟:</label>
+                                    <div id="bot-reply-delay" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
+                                    <label>历史帖子数:</label>
+                                    <div id="bot-history-posts" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
+                                    <label>历史评论数:</label>
+                                    <div id="bot-history-comments" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
+                                    <label>学习风格:</label>
+                                    <div id="bot-enable-style-learning" class="bot-config-value">-</div>
+                                </div>
+                                <div class="bot-config-row">
+                                    <label>自定义 Prompt:</label>
+                                    <div id="bot-custom-prompt-display" class="bot-config-value" style="max-height: 100px; overflow-y: auto; white-space: pre-wrap;">-</div>
+                                </div>
+                            </div>
+                            <!-- 机器人配置表单 -->
+                            <div class="bot-config-form" id="bot-config-form" style="display: none;">
+                                <form id="bot-config-edit-form">
+                                    <div class="form-section">
+                                        <h4>🤖 机器人设置</h4>
+                                        <div class="form-group">
+                                            <label>
+                                                <input type="checkbox" id="bot-enabled"> 启用自动回复机器人
+                                            </label>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bot-reply-keywords-input">回复关键词（多个用逗号分隔）</label>
+                                            <input type="text" id="bot-reply-keywords-input" placeholder="例如：招聘,求职">
+                                            <small>留空则回复所有匹配的帖子</small>
+                                        </div>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="bot-min-reply-delay">最小回复延迟（秒）</label>
+                                                <input type="number" id="bot-min-reply-delay" min="1" value="30">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="bot-max-reply-delay">最大回复延迟（秒）</label>
+                                                <input type="number" id="bot-max-reply-delay" min="1" value="300">
+                                            </div>
+                                        </div>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="bot-history-posts-input">历史帖子数</label>
+                                                <input type="number" id="bot-history-posts-input" min="1" value="50">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="bot-history-comments-input">历史评论数</label>
+                                                <input type="number" id="bot-history-comments-input" min="1" value="200">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>
+                                                <input type="checkbox" id="bot-enable-style-learning-input" checked> 开启学习风格
+                                            </label>
+                                            <small>开启后，机器人会学习小组历史评论的风格；关闭则使用默认或自定义 prompt</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bot-custom-prompt-input">自定义 Prompt</label>
+                                            <textarea id="bot-custom-prompt-input" rows="6" placeholder="例如：你是一个幽默风趣的豆瓣小组成员，喜欢用表情符号和网络流行语..."></textarea>
+                                            <small>如果填写了自定义 prompt，将优先使用自定义 prompt，而不是学习风格。留空则使用默认 prompt 或学习风格。</small>
+                                        </div>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">💾 保存配置</button>
+                                        <button type="button" class="btn btn-secondary" id="cancel-bot-config-btn">取消</button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="bot-config-note">
+                                <small>💡 提示：配置修改后将立即生效，无需重启应用。</small>
+                            </div>
+                        </div>
+
+                        <!-- 测试回复 -->
+                        <div class="bot-test-card">
+                            <h3>🧪 测试回复生成</h3>
+                            <div class="bot-test-form">
+                                <div class="form-group">
+                                    <label for="test-post-title">帖子标题 *</label>
+                                    <input type="text" id="test-post-title" placeholder="例如：一居室出租，价格实惠" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="test-post-content">帖子内容 *</label>
+                                    <textarea id="test-post-content" rows="5" placeholder="例如：本人有一居室出租，价格实惠，位置优越..." required></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="test-group-id">小组ID</label>
+                                    <input type="text" id="test-group-id" placeholder="例如：745814（可选，用于学习小组风格）">
+                                </div>
+                                <button class="btn btn-primary" id="test-generate-btn">✨ 生成回复</button>
+                            </div>
+                            <div id="test-result" class="bot-test-result" style="display: none;">
+                                <h4>生成的回复:</h4>
+                                <div class="bot-test-reply" id="test-reply-content"></div>
+                                <button class="btn btn-secondary btn-sm" id="copy-reply-btn" style="margin-top: 10px;">📋 复制回复</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <!-- 帖子详情模态框 -->
@@ -84,19 +278,6 @@
                 <span class="close" id="close-modal">&times;</span>
                 <div id="post-detail"></div>
             </div>
-        </div>
-
-        <!-- 错误日志显示区域 -->
-        <div id="error-log-container" class="error-log-container">
-            <div class="error-log-header">
-                <h3>🐛 错误日志</h3>
-                <div class="error-log-actions">
-                    <button class="btn btn-secondary btn-sm" id="clear-error-log">清空日志</button>
-                    <button class="btn btn-secondary btn-sm" id="copy-error-log">复制日志</button>
-                    <button class="btn btn-secondary btn-sm" id="toggle-error-log">收起</button>
-                </div>
-            </div>
-            <div id="error-log-content" class="error-log-content"></div>
         </div>
 
         <!-- 配置编辑模态框 -->
