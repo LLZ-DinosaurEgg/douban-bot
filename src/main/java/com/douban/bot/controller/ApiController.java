@@ -190,7 +190,7 @@ public class ApiController {
                 config.put("hasCookie", botConfigRow.cookie() != null && !botConfigRow.cookie().isEmpty());
                 config.put("cookie", botConfigRow.cookie() != null && !botConfigRow.cookie().isEmpty() ? "****" : "");
                 config.put("replySpeedMultiplier", botConfigRow.replySpeedMultiplier() != null ? botConfigRow.replySpeedMultiplier() : 1.0);
-                config.put("replyCheckInterval", botConfigRow.replyTaskInterval() != null ? botConfigRow.replyTaskInterval() : 300);
+                config.put("replyTaskInterval", botConfigRow.replyTaskInterval() != null ? botConfigRow.replyTaskInterval() : 300);
             } else {
                 // 从 AppConfig 读取（兼容旧配置）
                 config.put("enabled", appConfig.getCrawlerBot() != null && appConfig.getCrawlerBot());
@@ -213,7 +213,7 @@ public class ApiController {
                 config.put("hasCookie", appConfig.getCookie() != null && !appConfig.getCookie().isEmpty());
                 config.put("cookie", ""); // 从 AppConfig 读取时不显示 cookie
                 config.put("replySpeedMultiplier", 1.0); // 默认速度倍数
-                config.put("replyCheckInterval", 300); // 默认5分钟
+                config.put("replyTaskInterval", 300); // 默认5分钟
             }
 
             Map<String, Object> response = new HashMap<>();

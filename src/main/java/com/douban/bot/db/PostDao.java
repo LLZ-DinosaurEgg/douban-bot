@@ -84,9 +84,10 @@ public interface PostDao {
             "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
             "created, updated, created_at as createdAt FROM \"Post\" " +
             "WHERE is_matched = 1 AND (bot_replied IS NULL OR bot_replied = 0) " +
+            "AND (bot_reply_at IS NULL OR bot_reply_at = '' OR datetime(bot_reply_at) <= datetime('now', '-' || :cooldownSeconds || ' seconds')) " +
             "ORDER BY created ASC LIMIT 1")
     @RegisterConstructorMapper(PostRow.class)
-    Optional<PostRow> findOneUnrepliedPost();
+    Optional<PostRow> findOneUnrepliedPost(@Bind("cooldownSeconds") int cooldownSeconds);
 
     @SqlUpdate("INSERT INTO \"Post\" (post_id, group_id, author_info, alt, title, content, photo_list, " +
             "is_matched, keyword_list, created, updated) " +
@@ -166,8 +167,8 @@ public interface PostDao {
         return rows.stream().map(this::toPost).toList();
     }
     
-    default Post getOneUnrepliedPost() {
-        return findOneUnrepliedPost().map(this::toPost).orElse(null);
+    default Post getOneUnrepliedPost(int cooldownSeconds) {
+        return findOneUnrepliedPost(cooldownSeconds).map(this::toPost).orElse(null);
     }
 
     private PostRow toPostRow(Post post) {

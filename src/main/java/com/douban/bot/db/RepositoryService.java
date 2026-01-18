@@ -74,8 +74,8 @@ public class RepositoryService {
         return postDao.getPostsByGroupId(groupId, limit);
     }
     
-    public Post getOneUnrepliedPost() {
-        return postDao.getOneUnrepliedPost();
+    public Post getOneUnrepliedPost(int cooldownSeconds) {
+        return postDao.getOneUnrepliedPost(cooldownSeconds);
     }
 
     // Comment methods

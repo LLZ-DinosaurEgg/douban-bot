@@ -78,47 +78,75 @@ public class HtmlParser {
         List<Map<String, Object>> posts = new ArrayList<>();
         Elements rows = doc.select("table.olt tr");
 
-        for (Element row : rows) {
-            Element link = row.selectFirst("td.title a");
-            if (link == null) continue;
+        if (rows != null && !rows.isEmpty()) {
+            for (Element row : rows) {
+                Element link = row.selectFirst("td.title a");
+                if (link == null) continue;
 
+                String href = link.attr("href");
+                String title = link.text().trim();
+
+                Matcher matcher = POST_ID_PATTERN.matcher(href);
+                if (!matcher.find()) continue;
+
+                String postId = matcher.group(1);
+
+                // 获取作者信息
+                Elements tds = row.select("td");
+                String authorName = "";
+                String authorHref = "";
+                if (tds.size() > 1) {
+                    Element authorLink = tds.get(1).selectFirst("a");
+                    if (authorLink != null) {
+                        authorName = authorLink.text().trim();
+                        authorHref = authorLink.attr("href");
+                    }
+                }
+
+                // 获取更新时间
+                String updateTime = "";
+                if (tds.size() > 3) {
+                    updateTime = tds.get(3).text().trim();
+                }
+                String updated = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + " " + updateTime + ":00";
+
+                Map<String, Object> post = new HashMap<>();
+                post.put("id", postId);
+                post.put("title", title);
+                post.put("alt", href);
+                Map<String, String> author = new HashMap<>();
+                author.put("name", authorName);
+                author.put("alt", authorHref);
+                post.put("author", author);
+                post.put("updated", updated);
+
+                posts.add(post);
+            }
+            return posts;
+        }
+
+        // 兜底解析：页面结构变化或被反爬时尝试从链接中提取
+        Elements links = doc.select("#content a[href^=\"https://www.douban.com/group/topic/\"]");
+        for (Element link : links) {
             String href = link.attr("href");
             String title = link.text().trim();
+            if (title.isEmpty()) {
+                continue;
+            }
 
             Matcher matcher = POST_ID_PATTERN.matcher(href);
             if (!matcher.find()) continue;
 
             String postId = matcher.group(1);
-
-            // 获取作者信息
-            Elements tds = row.select("td");
-            String authorName = "";
-            String authorHref = "";
-            if (tds.size() > 1) {
-                Element authorLink = tds.get(1).selectFirst("a");
-                if (authorLink != null) {
-                    authorName = authorLink.text().trim();
-                    authorHref = authorLink.attr("href");
-                }
-            }
-
-            // 获取更新时间
-            String updateTime = "";
-            if (tds.size() > 3) {
-                updateTime = tds.get(3).text().trim();
-            }
-            String updated = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + " " + updateTime + ":00";
-
             Map<String, Object> post = new HashMap<>();
             post.put("id", postId);
             post.put("title", title);
             post.put("alt", href);
             Map<String, String> author = new HashMap<>();
-            author.put("name", authorName);
-            author.put("alt", authorHref);
+            author.put("name", "");
+            author.put("alt", "");
             post.put("author", author);
-            post.put("updated", updated);
-
+            post.put("updated", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             posts.add(post);
         }
 

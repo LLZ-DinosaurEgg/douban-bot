@@ -4,6 +4,7 @@ import com.douban.bot.config.AppConfig;
 import com.douban.bot.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -45,8 +46,10 @@ public class DoubanApiService {
             Thread.sleep(1000 + (int)(Math.random() * 1000));
             
             String postPageContent = null;
+            Integer beforeCommentCount = null;
             try {
                 postPageContent = HttpUtils.fetchContent(postUrl, cookie);
+                beforeCommentCount = extractCommentCount(postPageContent);
                 log.debug("已访问帖子页面: topicId={}", topicId);
             } catch (Exception e) {
                 log.warn("访问帖子页面失败，继续尝试发送评论: topicId={}, error={}", topicId, e.getMessage());
@@ -54,15 +57,17 @@ public class DoubanApiService {
             
             // 从Cookie中提取ck（CSRF token）
             String ck = HttpUtils.extractCkFromCookie(cookie);
-            
-            // 如果Cookie中没有ck，尝试从页面中提取
-            if ((ck == null || ck.isEmpty()) && postPageContent != null) {
-                // 尝试从页面HTML中提取ck值
+
+            // 尝试从页面HTML中提取ck（优先使用页面中更“新鲜”的ck）
+            if (postPageContent != null) {
                 Pattern ckPattern = Pattern.compile("ck['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]", Pattern.CASE_INSENSITIVE);
                 Matcher matcher = ckPattern.matcher(postPageContent);
                 if (matcher.find()) {
-                    ck = matcher.group(1);
-                    log.debug("从页面中提取到ck: topicId={}", topicId);
+                    String pageCk = matcher.group(1);
+                    if (pageCk != null && !pageCk.isEmpty()) {
+                        ck = pageCk;
+                        log.debug("从页面中提取到ck: topicId={}", topicId);
+                    }
                 }
             }
             
@@ -103,30 +108,67 @@ public class DoubanApiService {
             log.info("豆瓣评论接口响应: topicId={}, statusCode={}, responseLength={}, preview={}", 
                     topicId, statusCode, response != null ? response.length() : 0, responsePreview);
             
+            // 如果状态码是403，豆瓣的反爬机制可能返回403，但评论可能已经成功
+            // 先进行延迟验证，避免误判为失败
+            if (statusCode == 403) {
+                log.warn("收到403响应，但评论可能已成功发送，延迟验证中: topicId={}", topicId);
+                boolean verified = verifyCommentAfter403(topicId, cookie, content, beforeCommentCount);
+                if (verified) {
+                    return true;
+                }
+
+                // 403 可能是风控拦截，尝试刷新 ck 后重试一次
+                log.warn("403验证失败，尝试刷新ck后重试一次: topicId={}", topicId);
+                try {
+                    String refreshedPage = HttpUtils.fetchContent(postUrl, cookie);
+                    String refreshedCk = ck;
+                    Pattern ckPattern = Pattern.compile("ck['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]", Pattern.CASE_INSENSITIVE);
+                    Matcher matcher = ckPattern.matcher(refreshedPage);
+                    if (matcher.find()) {
+                        refreshedCk = matcher.group(1);
+                    }
+
+                    StringBuilder retryForm = new StringBuilder();
+                    retryForm.append("rv_comment=").append(URLEncoder.encode(content, StandardCharsets.UTF_8));
+                    if (refreshedCk != null && !refreshedCk.isEmpty()) {
+                        retryForm.append("&ck=").append(URLEncoder.encode(refreshedCk, StandardCharsets.UTF_8));
+                    }
+                    retryForm.append("&start=0");
+                    retryForm.append("&submit_btn=").append(URLEncoder.encode("发送", StandardCharsets.UTF_8));
+
+                    int retryDelay = 4000 + (int)(Math.random() * 4000);
+                    Thread.sleep(retryDelay);
+                    HttpUtils.PostResponse retryResponse = HttpUtils.postFormDataWithStatus(
+                            commentUrl, cookie, postUrl, retryForm.toString());
+                    log.info("403重试评论响应: topicId={}, statusCode={}", topicId, retryResponse.statusCode);
+
+                    return verifyCommentAfter403(topicId, cookie, content, beforeCommentCount);
+                } catch (Exception e) {
+                    log.warn("403重试失败: topicId={}, error={}", topicId, e.getMessage());
+                }
+                return false;
+            }
+
             // 检查响应是否成功
             if (response == null || response.trim().isEmpty()) {
                 log.warn("评论发送响应为空: topicId={}", topicId);
                 return false;
             }
-            
+
             String lowerResponse = response.toLowerCase();
-            
+
             // 检查明显的错误信息
-            if (lowerResponse.contains("验证码") || lowerResponse.contains("captcha") 
+            if (lowerResponse.contains("验证码") || lowerResponse.contains("captcha")
                     || lowerResponse.contains("请输入验证码") || lowerResponse.contains("验证码错误")) {
                 log.error("发送评论失败，需要验证码: topicId={}", topicId);
                 return false;
             }
-            if (lowerResponse.contains("登录") || lowerResponse.contains("login") 
+            if (lowerResponse.contains("登录") || lowerResponse.contains("login")
                     || lowerResponse.contains("请先登录") || lowerResponse.contains("未登录")) {
                 log.error("发送评论失败，需要登录或Cookie已失效: topicId={}", topicId);
                 return false;
             }
-            if (lowerResponse.contains("403") || lowerResponse.contains("forbidden")) {
-                log.error("发送评论失败，403禁止访问: topicId={}", topicId);
-                return false;
-            }
-            if (lowerResponse.contains("评论失败") || lowerResponse.contains("发送失败") 
+            if (lowerResponse.contains("评论失败") || lowerResponse.contains("发送失败")
                     || lowerResponse.contains("操作失败")) {
                 log.error("发送评论失败，响应中包含失败信息: topicId={}", topicId);
                 return false;
@@ -153,45 +195,6 @@ public class DoubanApiService {
                 return true;
             }
             
-            // 如果状态码是403，豆瓣的反爬机制可能返回403，但评论可能已经成功
-            // 延迟几秒后访问帖子页面，检查评论是否真的发送成功
-            if (statusCode == 403) {
-                log.warn("收到403响应，但评论可能已成功发送，延迟验证中: topicId={}", topicId);
-                try {
-                    // 等待5-8秒，让豆瓣服务器充分处理评论，同时避免频繁请求触发验证码
-                    int verifyDelay = 5000 + (int)(Math.random() * 3000);
-                    log.debug("403验证延迟: topicId={}, delay={}ms", topicId, verifyDelay);
-                    Thread.sleep(verifyDelay);
-                    
-                    // 访问帖子页面，检查评论是否出现
-                    String verifyUrl = appConfig.getDoubanBaseHost() + "/group/topic/" + topicId + "/";
-                    String verifyPageContent = HttpUtils.fetchContent(verifyUrl, cookie);
-                    
-                    // 检查页面中是否包含我们发送的评论内容
-                    if (verifyPageContent != null && verifyPageContent.contains(contentPrefix)) {
-                        log.info("评论发送成功（403后验证：页面中包含评论内容）: topicId={}", topicId);
-                        return true;
-                    }
-                    
-                    // 如果页面中不包含评论内容，再等待一段时间后重试一次
-                    // 增加延迟时间，避免频繁请求触发验证码
-                    int retryDelay = 5000 + (int)(Math.random() * 3000);
-                    log.debug("第一次验证未找到评论，等待后再次验证: topicId={}, delay={}ms", topicId, retryDelay);
-                    Thread.sleep(retryDelay);
-                    verifyPageContent = HttpUtils.fetchContent(verifyUrl, cookie);
-                    
-                    if (verifyPageContent != null && verifyPageContent.contains(contentPrefix)) {
-                        log.info("评论发送成功（403后第二次验证：页面中包含评论内容）: topicId={}", topicId);
-                        return true;
-                    }
-                    
-                    log.warn("收到403响应，验证后仍未在页面中找到评论: topicId={}", topicId);
-                    return false;
-                } catch (Exception e) {
-                    log.warn("验证评论是否发送成功时出错，假设失败: topicId={}, error={}", topicId, e.getMessage());
-                    return false;
-                }
-            }
             
             // 如果状态码是200但响应是HTML页面且包含帖子内容，可能是成功但返回了帖子页面
             // 这种情况下需要更严格的检查
@@ -216,5 +219,109 @@ public class DoubanApiService {
             log.error("发送评论时发生未知错误: topicId={}, error={}", topicId, e.getMessage(), e);
             return false;
         }
+    }
+
+    private boolean verifyCommentAfter403(String topicId, String cookie, String content, Integer beforeCommentCount) {
+        try {
+            int verifyDelay = 5000 + (int)(Math.random() * 3000);
+            log.debug("403验证延迟: topicId={}, delay={}ms", topicId, verifyDelay);
+            Thread.sleep(verifyDelay);
+
+            String verifyUrl = appConfig.getDoubanBaseHost() + "/group/topic/" + topicId + "/";
+            HttpUtils.GetResponse verifyResponse = HttpUtils.fetchContentWithStatus(verifyUrl, cookie, verifyUrl);
+            String verifyPageContent = verifyResponse.body;
+            if (verifyResponse.statusCode != 200 && verifyResponse.statusCode != 302) {
+                log.warn("403验证时访问帖子页面失败: topicId={}, status={}", topicId, verifyResponse.statusCode);
+            }
+
+            if (isCommentPresent(verifyPageContent, content)) {
+                log.info("评论发送成功（403后验证：页面中包含评论内容）: topicId={}", topicId);
+                return true;
+            }
+
+            Integer afterCount = extractCommentCount(verifyPageContent);
+            if (beforeCommentCount != null && afterCount != null && afterCount > beforeCommentCount) {
+                log.info("评论发送成功（403后验证：评论数增加 {} -> {}）: topicId={}",
+                        beforeCommentCount, afterCount, topicId);
+                return true;
+            }
+
+            int retryDelay = 5000 + (int)(Math.random() * 3000);
+            log.debug("第一次验证未找到评论，等待后再次验证: topicId={}, delay={}ms", topicId, retryDelay);
+            Thread.sleep(retryDelay);
+            verifyResponse = HttpUtils.fetchContentWithStatus(verifyUrl, cookie, verifyUrl);
+            verifyPageContent = verifyResponse.body;
+            if (verifyResponse.statusCode != 200 && verifyResponse.statusCode != 302) {
+                log.warn("403二次验证访问帖子页面失败: topicId={}, status={}", topicId, verifyResponse.statusCode);
+            }
+
+            if (isCommentPresent(verifyPageContent, content)) {
+                log.info("评论发送成功（403后第二次验证：页面中包含评论内容）: topicId={}", topicId);
+                return true;
+            }
+
+            afterCount = extractCommentCount(verifyPageContent);
+            if (beforeCommentCount != null && afterCount != null && afterCount > beforeCommentCount) {
+                log.info("评论发送成功（403后第二次验证：评论数增加 {} -> {}）: topicId={}",
+                        beforeCommentCount, afterCount, topicId);
+                return true;
+            }
+
+            log.warn("收到403响应，验证后仍未在页面中找到评论: topicId={}", topicId);
+            return false;
+        } catch (Exception e) {
+            log.warn("验证评论是否发送成功时出错，假设失败: topicId={}, error={}", topicId, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isCommentPresent(String html, String content) {
+        if (html == null || html.isBlank() || content == null || content.isBlank()) {
+            return false;
+        }
+        String normalizedContent = normalizeText(content);
+        String contentPrefix = normalizedContent.substring(0, Math.min(16, normalizedContent.length()));
+
+        // 优先只匹配评论区文本，避免全页噪音
+        String commentText = Jsoup.parse(html)
+                .select(".comment-item, .reply-item, .comment-content, .reply-content, .comment-list, .reply-list")
+                .text();
+        String normalizedComment = normalizeText(commentText);
+        if (normalizedComment.contains(contentPrefix)) {
+            return true;
+        }
+
+        // 兜底：全页文本
+        String pageText = Jsoup.parse(html).text();
+        String normalizedPage = normalizeText(pageText);
+        return normalizedPage.contains(contentPrefix);
+    }
+
+    private String normalizeText(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text
+                .replace("&nbsp;", "")
+                .replace("\u00A0", "")
+                .replaceAll("\\s+", "")
+                .trim();
+    }
+
+    private Integer extractCommentCount(String html) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+        String text = Jsoup.parse(html).text();
+        Pattern pattern = Pattern.compile("(\\d+)\\s*回应");
+        Matcher matcher = pattern.matcher(text);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 }

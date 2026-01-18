@@ -6,8 +6,6 @@ import com.douban.bot.db.RepositoryService;
 import com.douban.bot.model.Comment;
 import com.douban.bot.model.Group;
 import com.douban.bot.model.Post;
-import com.douban.bot.service.DoubanApiService;
-import com.douban.bot.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.Jdbi;
@@ -220,7 +218,7 @@ public class ReplyBotService {
     /**
      * 处理一个未回复的帖子（用于定时任务）
      */
-    public void processOneUnrepliedPost() {
+    public void processOneUnrepliedPost(int cooldownSeconds) {
         try {
             // 从数据库读取机器人配置
             BotConfigDao.BotConfigRow botConfig = jdbi.withExtension(BotConfigDao.class, BotConfigDao::findById);
@@ -233,8 +231,8 @@ public class ReplyBotService {
                 return;
             }
             
-            // 获取一个未回复的帖子
-            Post post = repository.getOneUnrepliedPost();
+            // 获取一个未回复的帖子（带冷却时间，避免频繁重试）
+            Post post = repository.getOneUnrepliedPost(cooldownSeconds);
             if (post == null) {
                 log.debug("没有需要回复的帖子");
                 return;
@@ -254,28 +252,33 @@ public class ReplyBotService {
             
             // 检查是否需要回复（根据回复关键词配置）
             if (!shouldReply(post, botConfig)) {
-                log.debug("帖子不符合回复条件，标记为已处理: postId={}", post.getPostId());
-                // 标记为已回复，避免重复检查
-                post.setBotReplied(true);
+                log.debug("帖子不符合回复条件，进入冷却: postId={}", post.getPostId());
+                // 不标记为已回复，避免永久跳过；记录冷却时间减少频繁检查
+                post.setBotReplied(false);
                 post.setBotReplyContent("不符合回复条件");
                 post.setBotReplyAt(LocalDateTime.now());
                 repository.updatePostBotReply(post);
                 return;
             }
             
-            // 生成回复
-            String userPrompt = "请为以下帖子生成一个符合小组风格的回复：\n标题：" + post.getTitle() + "\n内容：" + post.getContent();
-            
-            String reply = llmClient.generateReply(
-                    systemPrompt, 
-                    userPrompt,
-                    botConfig.llmApiBase(),
-                    botConfig.llmApiKey(),
-                    botConfig.llmModel(),
-                    botConfig.llmTemperature(),
-                    botConfig.llmMaxTokens()
-            );
-            log.info("为帖子 {} 生成回复: {}", post.getPostId(), reply);
+            // 生成回复（如果上次已生成但发送失败，复用内容，避免重复调用LLM）
+            String reply = null;
+            if (post.getBotReplyContent() != null && !post.getBotReplyContent().trim().isEmpty()) {
+                reply = post.getBotReplyContent();
+                log.info("复用上次生成的回复: postId={}, contentLength={}", post.getPostId(), reply.length());
+            } else {
+                String userPrompt = "请为以下帖子生成一个符合小组风格的回复：\n标题：" + post.getTitle() + "\n内容：" + post.getContent();
+                reply = llmClient.generateReply(
+                        systemPrompt,
+                        userPrompt,
+                        botConfig.llmApiBase(),
+                        botConfig.llmApiKey(),
+                        botConfig.llmModel(),
+                        botConfig.llmTemperature(),
+                        botConfig.llmMaxTokens()
+                );
+                log.info("为帖子 {} 生成回复: {}", post.getPostId(), reply);
+            }
             
             // 获取机器人配置的cookie，用于发送评论
             String botCookie = botConfig.cookie() != null && !botConfig.cookie().trim().isEmpty() 
@@ -300,12 +303,16 @@ public class ReplyBotService {
                 log.warn("Cookie未配置，无法发送评论到豆瓣: postId={}", post.getPostId());
             }
             
-            // 保存回复到数据库（无论是否成功发送都保存）
-            post.setBotReplied(true);
+            // 保存回复到数据库（失败时不标记已回复，但记录时间用于冷却）
+            post.setBotReplied(commentSent);
             post.setBotReplyContent(reply);
             post.setBotReplyAt(LocalDateTime.now());
             repository.updatePostBotReply(post);
-            log.info("已保存回复到数据库: postId={}, 已发送到豆瓣={}", post.getPostId(), commentSent);
+            if (commentSent) {
+                log.info("已保存回复到数据库: postId={}, 已发送到豆瓣=true", post.getPostId());
+            } else {
+                log.warn("评论发送失败，进入冷却: postId={}, cooldownSeconds={}", post.getPostId(), cooldownSeconds);
+            }
             
             // 注意：不再在这里添加延迟，延迟由定时任务间隔（replyTaskInterval）统一控制
             

@@ -104,7 +104,7 @@ public class ConfigController {
                           excludeKeywordsJson, config.getPages() != null ? config.getPages() : 10, 
                           config.getSleepSeconds() != null ? config.getSleepSeconds() : 900, 
                           config.getEnabled() != null && config.getEnabled(), 
-                          config.getCookie() != null ? config.getCookie() : "",
+                          config.getCookie() != null ? config.getCookie() : "", 
                           config.getCrawlComments() != null ? config.getCrawlComments() : true,
                           createdAt, updatedAt);
                 
