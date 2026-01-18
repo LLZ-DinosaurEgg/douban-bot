@@ -134,26 +134,7 @@ public class ReplyBotService {
                     repository.updatePostBotReply(post);
                     log.info("已保存回复到数据库: postId={}, 已发送到豆瓣={}", post.getPostId(), commentSent);
                     
-                    // 从数据库读取延迟配置
-                    BotConfigDao.BotConfigRow delayConfig = jdbi.withExtension(BotConfigDao.class, BotConfigDao::findById);
-                    int minDelay = delayConfig != null && delayConfig.minReplyDelay() != null ? delayConfig.minReplyDelay() : 30;
-                    int maxDelay = delayConfig != null && delayConfig.maxReplyDelay() != null ? delayConfig.maxReplyDelay() : 300;
-                    double speedMultiplier = delayConfig != null && delayConfig.replySpeedMultiplier() != null && delayConfig.replySpeedMultiplier() > 0 
-                            ? delayConfig.replySpeedMultiplier() 
-                            : 1.0;
-                    
-                    // 根据速度倍数调整延迟（倍数越大，延迟越长；倍数越小，延迟越短）
-                    int adjustedMinDelay = (int) (minDelay * speedMultiplier);
-                    int adjustedMaxDelay = (int) (maxDelay * speedMultiplier);
-                    
-                    log.debug("回复延迟: 原始={}-{}秒, 速度倍数={}, 调整后={}-{}秒", 
-                            minDelay, maxDelay, speedMultiplier, adjustedMinDelay, adjustedMaxDelay);
-                    
-                    // 随机延迟
-                    HttpUtils.randomSleep(
-                            adjustedMinDelay * 1000,
-                            adjustedMaxDelay * 1000
-                    );
+                    // 注意：不再在这里添加延迟，延迟由定时任务间隔（replyTaskInterval）统一控制
                 } catch (Exception e) {
                     log.error("生成回复失败: postId={}, error={}", post.getPostId(), e.getMessage(), e);
                 }
@@ -326,21 +307,7 @@ public class ReplyBotService {
             repository.updatePostBotReply(post);
             log.info("已保存回复到数据库: postId={}, 已发送到豆瓣={}", post.getPostId(), commentSent);
             
-            // 根据配置的延迟和速度倍数，添加延迟
-            int minDelay = botConfig.minReplyDelay() != null ? botConfig.minReplyDelay() : 30;
-            int maxDelay = botConfig.maxReplyDelay() != null ? botConfig.maxReplyDelay() : 300;
-            double speedMultiplier = botConfig.replySpeedMultiplier() != null && botConfig.replySpeedMultiplier() > 0 
-                    ? botConfig.replySpeedMultiplier() 
-                    : 1.0;
-            
-            int adjustedMinDelay = (int) (minDelay * speedMultiplier);
-            int adjustedMaxDelay = (int) (maxDelay * speedMultiplier);
-            
-            log.debug("回复延迟: 原始={}-{}秒, 速度倍数={}, 调整后={}-{}秒", 
-                    minDelay, maxDelay, speedMultiplier, adjustedMinDelay, adjustedMaxDelay);
-            
-            // 随机延迟（在定时任务中，这个延迟会在下次任务执行前完成）
-            HttpUtils.randomSleep(adjustedMinDelay * 1000, adjustedMaxDelay * 1000);
+            // 注意：不再在这里添加延迟，延迟由定时任务间隔（replyTaskInterval）统一控制
             
         } catch (Exception e) {
             log.error("处理未回复帖子失败: {}", e.getMessage(), e);

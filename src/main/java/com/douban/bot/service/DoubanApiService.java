@@ -40,6 +40,10 @@ public class DoubanApiService {
         try {
             // 先访问帖子页面，获取必要的token和session信息（模拟真实浏览器的行为）
             String postUrl = appConfig.getDoubanBaseHost() + "/group/topic/" + topicId + "/";
+            
+            // 在访问帖子页面前，添加随机延迟（模拟点击链接的时间）
+            Thread.sleep(1000 + (int)(Math.random() * 1000));
+            
             String postPageContent = null;
             try {
                 postPageContent = HttpUtils.fetchContent(postUrl, cookie);
@@ -81,8 +85,11 @@ public class DoubanApiService {
             log.info("准备发送评论到豆瓣: topicId={}, contentLength={}, url={}, hasCk={}", 
                     topicId, content.length(), commentUrl, ck != null && !ck.isEmpty());
             
-            // 添加短暂延迟，模拟人类操作
-            Thread.sleep(500 + (int)(Math.random() * 500));
+            // 模拟阅读帖子的时间：访问帖子页面后，等待3-8秒再发送评论
+            // 这样可以更真实地模拟人类行为，减少触发验证码的概率
+            int readTime = 3000 + (int)(Math.random() * 5000); // 3-8秒
+            log.debug("模拟阅读时间: topicId={}, delay={}ms", topicId, readTime);
+            Thread.sleep(readTime);
             
             // 发送POST请求
             HttpUtils.PostResponse postResponse = HttpUtils.postFormDataWithStatus(commentUrl, cookie, postUrl, formData.toString());
@@ -144,6 +151,46 @@ public class DoubanApiService {
                     || response.contains("您的评论") || response.contains("已添加评论")) {
                 log.info("评论发送成功（响应中包含成功标识）: topicId={}", topicId);
                 return true;
+            }
+            
+            // 如果状态码是403，豆瓣的反爬机制可能返回403，但评论可能已经成功
+            // 延迟几秒后访问帖子页面，检查评论是否真的发送成功
+            if (statusCode == 403) {
+                log.warn("收到403响应，但评论可能已成功发送，延迟验证中: topicId={}", topicId);
+                try {
+                    // 等待5-8秒，让豆瓣服务器充分处理评论，同时避免频繁请求触发验证码
+                    int verifyDelay = 5000 + (int)(Math.random() * 3000);
+                    log.debug("403验证延迟: topicId={}, delay={}ms", topicId, verifyDelay);
+                    Thread.sleep(verifyDelay);
+                    
+                    // 访问帖子页面，检查评论是否出现
+                    String verifyUrl = appConfig.getDoubanBaseHost() + "/group/topic/" + topicId + "/";
+                    String verifyPageContent = HttpUtils.fetchContent(verifyUrl, cookie);
+                    
+                    // 检查页面中是否包含我们发送的评论内容
+                    if (verifyPageContent != null && verifyPageContent.contains(contentPrefix)) {
+                        log.info("评论发送成功（403后验证：页面中包含评论内容）: topicId={}", topicId);
+                        return true;
+                    }
+                    
+                    // 如果页面中不包含评论内容，再等待一段时间后重试一次
+                    // 增加延迟时间，避免频繁请求触发验证码
+                    int retryDelay = 5000 + (int)(Math.random() * 3000);
+                    log.debug("第一次验证未找到评论，等待后再次验证: topicId={}, delay={}ms", topicId, retryDelay);
+                    Thread.sleep(retryDelay);
+                    verifyPageContent = HttpUtils.fetchContent(verifyUrl, cookie);
+                    
+                    if (verifyPageContent != null && verifyPageContent.contains(contentPrefix)) {
+                        log.info("评论发送成功（403后第二次验证：页面中包含评论内容）: topicId={}", topicId);
+                        return true;
+                    }
+                    
+                    log.warn("收到403响应，验证后仍未在页面中找到评论: topicId={}", topicId);
+                    return false;
+                } catch (Exception e) {
+                    log.warn("验证评论是否发送成功时出错，假设失败: topicId={}, error={}", topicId, e.getMessage());
+                    return false;
+                }
             }
             
             // 如果状态码是200但响应是HTML页面且包含帖子内容，可能是成功但返回了帖子页面

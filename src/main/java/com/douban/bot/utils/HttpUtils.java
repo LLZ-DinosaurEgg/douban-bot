@@ -131,13 +131,10 @@ public class HttpUtils {
                 String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 
                 // 豆瓣可能返回200、302（重定向）或403
-                if (statusCode == 403) {
-                    throw new IOException("POST request failed with status: 403 Forbidden. " +
-                            "可能的原因：1) Cookie已失效 2) 需要验证码 3) 请求被反爬虫机制拦截。响应: " + 
-                            (responseBody.length() > 200 ? responseBody.substring(0, 200) + "..." : responseBody));
-                }
+                // 注意：即使返回403，评论可能已经成功发送，需要在调用方验证
+                // 不在这里抛出异常，而是返回403状态码，让调用方决定如何处理
                 
-                if (statusCode != 200 && statusCode != 302) {
+                if (statusCode != 200 && statusCode != 302 && statusCode != 403) {
                     throw new IOException("POST request failed with status: " + statusCode + ", response: " + 
                             (responseBody.length() > 200 ? responseBody.substring(0, 200) + "..." : responseBody));
                 }

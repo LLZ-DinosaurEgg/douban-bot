@@ -3,6 +3,8 @@ let currentGroupId = '';
 let currentPage = 1;
 let pageSize = 20;
 let filterMatched = false;
+let filterBotReplied = 'all'; // 'all' | 'true' | 'false'
+let sortOrder = 'desc'; // 'desc' | 'asc'
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,10 +17,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 设置事件监听
 function setupEventListeners() {
-    document.getElementById('filter-matched').addEventListener('change', (e) => {
-        filterMatched = e.target.checked;
-        loadPosts();
-    });
+    const filterMatchedEl = document.getElementById('filter-matched');
+    if (filterMatchedEl) {
+        filterMatchedEl.addEventListener('change', (e) => {
+            filterMatched = e.target.checked;
+            currentPage = 1; // 重置到第一页
+            loadPosts();
+        });
+    }
+    
+    const filterBotRepliedEl = document.getElementById('filter-bot-replied');
+    if (filterBotRepliedEl) {
+        filterBotRepliedEl.addEventListener('change', (e) => {
+            filterBotReplied = e.target.value;
+            currentPage = 1; // 重置到第一页
+            loadPosts();
+        });
+    }
+    
+    const sortOrderEl = document.getElementById('sort-order');
+    if (sortOrderEl) {
+        sortOrderEl.addEventListener('change', (e) => {
+            sortOrder = e.target.value;
+            currentPage = 1; // 重置到第一页
+            loadPosts();
+        });
+    }
 
     document.getElementById('close-modal').addEventListener('click', () => {
         document.getElementById('post-modal').classList.remove('show');
@@ -123,14 +147,31 @@ async function loadPosts() {
     container.innerHTML = '<div class="loading">加载中...</div>';
 
     try {
-        const url = `/api/posts?group_id=${currentGroupId}&page=${currentPage}&page_size=${pageSize}`;
+        // 构建URL参数
+        const params = new URLSearchParams({
+            group_id: currentGroupId || '',
+            page: currentPage.toString(),
+            page_size: pageSize.toString()
+        });
+        
+        // 添加筛选参数
+        if (filterBotReplied !== 'all') {
+            params.append('bot_replied', filterBotReplied);
+        }
+        
+        // 添加排序参数
+        if (sortOrder) {
+            params.append('sort', sortOrder);
+        }
+        
+        const url = `/api/posts?${params.toString()}`;
         const response = await fetch(url);
         const result = await response.json();
 
         if (result.success && result.data) {
             let posts = result.data;
             
-            // 过滤匹配的帖子
+            // 过滤匹配的帖子（前端过滤，因为后端已经处理了bot_replied）
             if (filterMatched) {
                 posts = posts.filter(post => post.isMatched);
             }
@@ -770,33 +811,17 @@ async function loadBotConfig() {
                 : '未配置（将回复所有匹配的帖子）';
             document.getElementById('bot-reply-keywords').textContent = replyKeywords;
             
-            const delay = config.minReplyDelay && config.maxReplyDelay
-                ? `${config.minReplyDelay}-${config.maxReplyDelay} 秒`
-                : '-';
-            document.getElementById('bot-reply-delay').textContent = delay;
-            
-            const speedMultiplier = config.replySpeedMultiplier != null ? config.replySpeedMultiplier : 1.0;
-            let speedText = speedMultiplier.toFixed(1);
-            if (speedMultiplier < 1.0) {
-                speedText += ' (快速模式)';
-            } else if (speedMultiplier > 1.0) {
-                speedText += ' (慢速模式)';
-            } else {
-                speedText += ' (正常速度)';
-            }
-            document.getElementById('bot-reply-speed-multiplier-display').textContent = speedText;
-            
-            const checkInterval = config.replyCheckInterval != null ? config.replyCheckInterval : 300;
-            const intervalMinutes = Math.floor(checkInterval / 60);
-            const intervalSeconds = checkInterval % 60;
-            let intervalText = checkInterval + ' 秒';
+            const replyInterval = config.replyTaskInterval != null ? config.replyTaskInterval : 300;
+            const intervalMinutes = Math.floor(replyInterval / 60);
+            const intervalSeconds = replyInterval % 60;
+            let intervalText = replyInterval + ' 秒';
             if (intervalMinutes > 0) {
                 intervalText = intervalMinutes + ' 分';
                 if (intervalSeconds > 0) {
-                    intervalText += intervalSeconds + ' 秒';
+                    intervalText += ' ' + intervalSeconds + ' 秒';
                 }
             }
-            document.getElementById('bot-reply-check-interval-display').textContent = intervalText;
+            document.getElementById('bot-reply-interval-display').textContent = intervalText;
             
             document.getElementById('bot-history-posts').textContent = config.maxHistoryPosts || '-';
             document.getElementById('bot-history-comments').textContent = config.maxHistoryComments || '-';
@@ -867,10 +892,7 @@ async function loadBotConfigToForm() {
             // 填充机器人配置字段
             document.getElementById('bot-enabled').checked = config.enabled || false;
             document.getElementById('bot-reply-keywords-input').value = config.replyKeywords ? config.replyKeywords.join(', ') : '';
-            document.getElementById('bot-min-reply-delay').value = config.minReplyDelay || 30;
-            document.getElementById('bot-max-reply-delay').value = config.maxReplyDelay || 300;
-            document.getElementById('bot-reply-speed-multiplier').value = config.replySpeedMultiplier != null ? config.replySpeedMultiplier : 1.0;
-            document.getElementById('bot-reply-check-interval').value = config.replyCheckInterval != null ? config.replyCheckInterval : 300;
+            document.getElementById('bot-reply-interval').value = config.replyTaskInterval != null ? config.replyTaskInterval : 300;
             document.getElementById('bot-history-posts-input').value = config.maxHistoryPosts || 50;
             document.getElementById('bot-history-comments-input').value = config.maxHistoryComments || 200;
             
@@ -955,10 +977,7 @@ async function saveBotConfig() {
     const config = {
         enabled: document.getElementById('bot-enabled').checked,
         replyKeywords: document.getElementById('bot-reply-keywords-input').value.trim(),
-        minReplyDelay: parseInt(document.getElementById('bot-min-reply-delay').value) || 30,
-        maxReplyDelay: parseInt(document.getElementById('bot-max-reply-delay').value) || 300,
-        replySpeedMultiplier: parseFloat(document.getElementById('bot-reply-speed-multiplier').value) || 1.0,
-        replyCheckInterval: parseInt(document.getElementById('bot-reply-check-interval').value) || 300,
+        replyTaskInterval: parseInt(document.getElementById('bot-reply-interval').value) || 300,
         maxHistoryPosts: parseInt(document.getElementById('bot-history-posts-input').value) || 50,
         maxHistoryComments: parseInt(document.getElementById('bot-history-comments-input').value) || 200,
         enableStyleLearning: document.getElementById('bot-enable-style-learning-input').checked,

@@ -62,12 +62,12 @@ public class RepositoryService {
         return postDao.checkPostTitleExists(title);
     }
 
-    public List<Post> getPostsWithPagination(String groupId, int page, int pageSize) {
-        return postDao.getPostsWithPagination(groupId, page, pageSize);
+    public List<Post> getPostsWithPagination(String groupId, int page, int pageSize, String botReplied, String sortOrder) {
+        return postDao.getPostsWithPagination(groupId, page, pageSize, botReplied, sortOrder);
     }
 
-    public int getPostsCount(String groupId) {
-        return postDao.getPostsCount(groupId);
+    public int getPostsCount(String groupId, String botReplied) {
+        return postDao.getPostsCount(groupId, botReplied);
     }
 
     public List<Post> getPostsByGroupId(String groupId, int limit) {
@@ -99,7 +99,7 @@ public class RepositoryService {
     public Map<String, Object> getStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("groups", getAllGroups().size());
-        stats.put("posts", postDao.getPostsCount(null));
+        stats.put("posts", postDao.getPostsCount(null, null)); // 查询所有帖子，不筛选
         // TODO: Add comment count query
         stats.put("comments", 0);
         return stats;
@@ -112,5 +112,11 @@ public class RepositoryService {
 
     public CrawlerConfig getCrawlerConfigById(Long id) {
         return crawlerConfigDao.getConfigById(id).orElse(null);
+    }
+    
+    public List<CrawlerConfig> getEnabledCrawlerConfigs() {
+        return crawlerConfigDao.getAllConfigs().stream()
+                .filter(c -> c.getEnabled() != null && c.getEnabled())
+                .toList();
     }
 }

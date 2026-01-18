@@ -51,13 +51,29 @@ public class ApiController {
     public ResponseEntity<Map<String, Object>> getPosts(
             @RequestParam(required = false) String group_id,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int page_size) {
+            @RequestParam(defaultValue = "20") int page_size,
+            @RequestParam(required = false) String bot_replied,
+            @RequestParam(required = false) String sort) {
         try {
             if (page < 1) page = 1;
             if (page_size < 1 || page_size > 100) page_size = 20;
+            
+            // 验证 bot_replied 参数：null/"all"/"true"/"false"
+            String botRepliedFilter = null;
+            if (bot_replied != null && !bot_replied.isEmpty() && !bot_replied.equalsIgnoreCase("all")) {
+                if (bot_replied.equalsIgnoreCase("true") || bot_replied.equalsIgnoreCase("false")) {
+                    botRepliedFilter = bot_replied.toLowerCase();
+                }
+            }
+            
+            // 验证 sort 参数：null/"desc"/"asc"，默认 "desc"
+            String sortOrder = "desc";
+            if (sort != null && (sort.equalsIgnoreCase("asc") || sort.equalsIgnoreCase("desc"))) {
+                sortOrder = sort.toLowerCase();
+            }
 
-            List<Post> posts = repository.getPostsWithPagination(group_id, page, page_size);
-            int total = repository.getPostsCount(group_id);
+            List<Post> posts = repository.getPostsWithPagination(group_id, page, page_size, botRepliedFilter, sortOrder);
+            int total = repository.getPostsCount(group_id, botRepliedFilter);
             int pages = (total + page_size - 1) / page_size;
 
             Map<String, Object> response = new HashMap<>();

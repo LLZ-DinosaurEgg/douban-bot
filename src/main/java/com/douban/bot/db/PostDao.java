@@ -34,17 +34,42 @@ public interface PostDao {
     @RegisterConstructorMapper(PostRow.class)
     Optional<PostRow> findByTitle(@Bind("title") String title);
 
-    @SqlQuery("SELECT COUNT(*) FROM \"Post\" WHERE (:groupId IS NULL OR group_id = :groupId)")
-    int countPosts(@Bind("groupId") String groupId);
+    @SqlQuery("SELECT COUNT(*) FROM \"Post\" " +
+            "WHERE (:groupId IS NULL OR group_id = :groupId) " +
+            "AND (:botReplied IS NULL OR " +
+            "     (:botReplied = 'true' AND bot_replied = 1) OR " +
+            "     (:botReplied = 'false' AND (bot_replied IS NULL OR bot_replied = 0)))")
+    int countPosts(@Bind("groupId") String groupId, @Bind("botReplied") String botReplied);
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
             "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
             "created, updated, created_at as createdAt FROM \"Post\" " +
             "WHERE (:groupId IS NULL OR group_id = :groupId) " +
+            "AND (:botReplied IS NULL OR " +
+            "     (:botReplied = 'true' AND bot_replied = 1) OR " +
+            "     (:botReplied = 'false' AND (bot_replied IS NULL OR bot_replied = 0))) " +
             "ORDER BY created DESC LIMIT :limit OFFSET :offset")
     @RegisterConstructorMapper(PostRow.class)
-    List<PostRow> findWithPagination(@Bind("groupId") String groupId, @Bind("limit") int limit, @Bind("offset") int offset);
+    List<PostRow> findWithPaginationDesc(@Bind("groupId") String groupId, 
+                                         @Bind("botReplied") String botReplied,
+                                         @Bind("limit") int limit, 
+                                         @Bind("offset") int offset);
+
+    @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
+            "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
+            "bot_replied as botReplied, bot_reply_content as botReplyContent, bot_reply_at as botReplyAt, " +
+            "created, updated, created_at as createdAt FROM \"Post\" " +
+            "WHERE (:groupId IS NULL OR group_id = :groupId) " +
+            "AND (:botReplied IS NULL OR " +
+            "     (:botReplied = 'true' AND bot_replied = 1) OR " +
+            "     (:botReplied = 'false' AND (bot_replied IS NULL OR bot_replied = 0))) " +
+            "ORDER BY created ASC LIMIT :limit OFFSET :offset")
+    @RegisterConstructorMapper(PostRow.class)
+    List<PostRow> findWithPaginationAsc(@Bind("groupId") String groupId, 
+                                        @Bind("botReplied") String botReplied,
+                                        @Bind("limit") int limit, 
+                                        @Bind("offset") int offset);
 
     @SqlQuery("SELECT id, post_id as postId, group_id as groupId, author_info as authorInfo, alt, title, content, " +
             "photo_list as photoList, is_matched as isMatched, keyword_list as keywordList, " +
@@ -121,14 +146,19 @@ public interface PostDao {
                       botReplyAt);
     }
 
-    default List<Post> getPostsWithPagination(String groupId, int page, int pageSize) {
+    default List<Post> getPostsWithPagination(String groupId, int page, int pageSize, String botReplied, String sortOrder) {
         int offset = (page - 1) * pageSize;
-        List<PostRow> rows = findWithPagination(groupId, pageSize, offset);
+        List<PostRow> rows;
+        if (sortOrder != null && sortOrder.equalsIgnoreCase("asc")) {
+            rows = findWithPaginationAsc(groupId, botReplied, pageSize, offset);
+        } else {
+            rows = findWithPaginationDesc(groupId, botReplied, pageSize, offset);
+        }
         return rows.stream().map(this::toPost).toList();
     }
 
-    default int getPostsCount(String groupId) {
-        return countPosts(groupId);
+    default int getPostsCount(String groupId, String botReplied) {
+        return countPosts(groupId, botReplied);
     }
 
     default List<Post> getPostsByGroupId(String groupId, int limit) {
