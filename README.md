@@ -22,7 +22,7 @@
 <img width="2310" height="1324" alt="fc08fdee-31ba-4959-9b1e-7fe0941a61e8" src="https://github.com/user-attachments/assets/6cb7d958-d6fe-433a-b24c-3594811542ae" />
 
 - **风格学习**：分析小组历史帖子和评论，学习回复风格
-<img width="2404" height="1194" alt="4c8b1f31-1da7-48dd-a08d-950a1a96b56d" src="https://github.com/user-attachments/assets/a377d16e-e519-4b70-80b1-ae42d639ec3d" />
+<img width="2274" height="1440" alt="image" src="https://github.com/user-attachments/assets/fc24152e-3a03-4aa2-814c-a01ece7a37ae" />
 
 - **智能回复**：基于大模型 API，生成符合小组风格的自动回复
 <img width="2354" height="1422" alt="image" src="https://github.com/user-attachments/assets/8829fbc1-c746-43c9-80b8-f7272773a3e9" />
